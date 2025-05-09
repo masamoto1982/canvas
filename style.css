@@ -1,0 +1,386 @@
+/* Apply border-box sizing globally */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    overscroll-behavior: none;
+    text-align: center;
+    background-color: #f0f0f0;
+    font-family: sans-serif;
+}
+
+/* Main layout container */
+article {
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
+    background-color: #ffffff;
+    padding: 10px;
+    text-align: left;
+}
+
+h1 {
+    text-align: center;
+}
+
+h2 {
+    text-align: left;
+    color: #a0a0a0;
+}
+
+section {
+    border: 2px dotted #a0a0a0;
+    padding: 10px;
+    margin: 10px 0 10px 0;
+}
+
+section:last-child {
+    margin-bottom: 0;
+}
+
+/* Style for textarea and input */
+#output,
+#txt-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    display: block;
+    margin-top: 5px;
+}
+
+#output {
+    resize: vertical;
+    min-height: 80px;
+    height: 500px; /* Desktop default height */
+    max-height: 300px;
+    background-color: #f8f8f8;
+    transition: background-color 0.3s;
+    overflow-y: auto;
+}
+
+#txt-input {
+    resize: vertical;
+    min-height: 80px;
+    height: 500px; /* Desktop default height */
+    max-height: 300px;
+    transition: background-color 0.3s;
+    overflow-y: auto;
+    font-family: monospace;
+}
+
+#output.executed {
+    background-color: #d1fae5;
+    transition: background-color 0.3s;
+}
+
+/* Input areas container */
+#input-container {
+    display: flex;
+    flex-direction: column;
+}
+
+#upper-half {
+    flex: 1;
+    min-height: 120px;
+}
+
+#d2d-input {
+    position: relative;
+    user-select: none;
+    margin-top: 5px;
+}
+
+#dot-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+    padding: 5px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
+
+.dot-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.dot {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: 1px solid #cccccc;
+    background-color: #f8f8f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.1s;
+    flex-shrink: 0;
+    touch-action: none;
+    box-sizing: border-box;
+}
+
+.dot.numeric {
+    background-color: #fee2e2;
+    color: #ef4444;
+    font-size: 16px;
+}
+
+.dot.word-dot {
+    background-color: #dbeafe;
+    color: #3b82f6;
+    font-size: 12px;
+    overflow: hidden;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.dot.detected {
+    background-color: #fca5a5;
+    border-color: #ef4444;
+    transform: scale(0.95);
+}
+
+.dot.tapped-feedback {
+    background-color: #fde68a;
+    transform: scale(0.95);
+    transition: background-color 0.1s, transform 0.1s;
+}
+
+#special-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.special-button {
+    width: 100px;
+    height: 45px;
+    border-radius: 10px;
+    border: 1px solid #cccccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    background-color: #e5e7eb;
+    flex-shrink: 0;
+    transition: transform 0.1s, background-color 0.1s;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    text-align: center;
+}
+
+.special-button.delete {
+    background-color: #f8f8f8;
+}
+
+.special-button.space {
+    background-color: #f8f8f8;
+}
+
+.special-button:active {
+    background-color: #9ca3af;
+}
+
+.special-button.long-pressed {
+    background-color: #fde68a;
+    transform: scale(0.95);
+}
+
+.special-button.combined-pressed {
+    background-color: #93c5fd;
+    transform: scale(0.95);
+}
+
+#special-row .dot.numeric {
+    flex-shrink: 0;
+}
+
+#line-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 10px auto;
+    width: 100%;
+}
+
+#clear-button {
+    display: block;
+    width: 100px;
+    padding: 10px;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#clear-button:hover {
+    background-color: #dc2626;
+}
+
+#clear-button:active {
+    background-color: #b91c1c;
+}
+
+#execute-button {
+    display: block;
+    width: 100px;
+    padding: 10px;
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#execute-button:hover {
+    background-color: #2563eb;
+}
+
+#execute-button:active {
+    background-color: #1d4ed8;
+}
+
+/* 認識フィードバックのスタイル */
+.recognition-feedback {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    width: 120px; 
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    font-weight: bold;
+    color: #3b82f6;
+    animation: fadeOut 0.8s ease-out forwards;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* フェードアウトアニメーション */
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes feedback-pulse {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+    50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* Responsive layout */
+@media (max-width: 768px) {
+    #mobile-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 80px);
+    }
+
+    #upper-half {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .input-section,
+    .output-section {
+        flex: 1;
+        transition: transform 0.3s ease;
+        width: 100%;
+    }
+
+    #output,
+    #txt-input {
+        height: 200px;
+    }
+
+    #txt-input {
+        min-height: 6rem;
+    }
+
+    .hide {
+        display: none;
+    }
+
+    #d2d-section {
+        height: 50vh;
+        min-height: 300px;
+    }
+
+    body {
+        overflow-x: hidden;
+    }
+}
+
+@media (min-width: 769px) {
+    #mobile-container {
+        display: block;
+    }
+
+    .input-section,
+    .output-section {
+        display: block;
+    }
+
+    .hide {
+        display: block;
+    }
+
+    #output,
+    #txt-input {
+         height: 500px;
+    }
+}
