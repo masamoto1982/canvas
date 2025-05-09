@@ -4,6 +4,8 @@ import { insertAtCursor } from './textEditor.js';
 
 // ドットグリッドの初期化
 export const initDotGrid = () => {
+    console.log("Initializing dot grid");
+    
     if (!elements.dotGrid || !elements.specialRow) {
         console.error("Required grid elements not found!");
         return;
@@ -77,6 +79,8 @@ export const initDotGrid = () => {
     if (elements.d2dArea) elements.d2dArea.tabIndex = -1;
 
     updateConfigStyles();
+    
+    console.log("Dot grid initialized");
 };
 
 // 設定スタイルの更新
@@ -167,6 +171,11 @@ export const detectDot = (x, y) => {
     drawState.lastDetectionTime = now;
 
     const hitRadius = CONFIG.sensitivity.hitRadius;
+    if (!elements.d2dArea) {
+        console.warn("d2d-area element not found in detectDot");
+        return;
+    }
+    
     elements.d2dArea.querySelectorAll('.dot').forEach(dot => {
         if (drawState.detectedDots.has(dot)) return;
         const r = dot.getBoundingClientRect();

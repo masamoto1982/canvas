@@ -1,14 +1,46 @@
-import { CONFIG, elements, appState, resizeCanvas, clearCanvas, focusOnInput, showTextSection, isMobileDevice } from './config.js';
+import { CONFIG, elements, appState, resizeCanvas, clearCanvas, focusOnInput, showTextSection, isMobileDevice, showOutputSection } from './config.js';
 import { interpreter } from './interpreter.js';
 import { initDotGrid, addDetectedDot, detectDot, resetDrawState, endDrawing, startDrawing } from './dotGrid.js';
-import { initRichTextEditor, insertAtCursor, clearInput, handleDeleteAction, executeCode as executeEditorCode } from './textEditor.js';
+import { initRichTextEditor, insertAtCursor, clearInput, handleDeleteAction } from './textEditor.js';
+
+// コード実行関数 - 循環参照を避ける
+export const executeCode = () => {
+    const editor = elements.input;
+    const output = elements.output;
+    
+    if (!editor || !output) return;
+    
+    const code = editor.innerText || '';
+    
+    if (!code.trim()) return;
+    
+    try {
+        // インタープリタを使用してコードを実行
+        const result = interpreter.execute(code);
+        
+        if (typeof result === 'string' && result.startsWith("エラー:")) {
+            output.value = result;
+        } else {
+            output.value = result !== undefined ? String(result) : "実行完了";
+            output.classList.add('executed');
+            setTimeout(() => output.classList.remove('executed'), 300);
+            
+            // 実行成功したら入力をクリア
+            editor.innerHTML = '';
+        }
+        
+        showOutputSection();
+    } catch (err) {
+        output.value = `致命的なエラー: ${err.message}`;
+        showOutputSection();
+    }
+    
+    focusOnInput();
+};
 
 // アプリケーションの初期化
 export const initApp = () => {
-    // インタープリタ実行コールバックを設定
-    window.executeCodeCallback = (code) => {
-        return interpreter.execute(code);
-    };
+    console.log("Initializing app...");
     
     // ドットグリッドの初期化
     initDotGrid();
@@ -33,6 +65,8 @@ export const initApp = () => {
     
     // 初期フォーカス
     focusOnInput();
+    
+    console.log("App initialization complete");
 };
 
 // レスポンシブレイアウトの初期化
@@ -222,7 +256,7 @@ const setupKeyboardHandlers = () => {
         if (e.key === 'Enter') {
             e.preventDefault();
             if(e.shiftKey) {
-                executeEditorCode();
+                executeCode();
             } else {
                 insertAtCursor('\n');
             }
@@ -232,7 +266,10 @@ const setupKeyboardHandlers = () => {
 
 // ドットイベントリスナーの設定
 const setupDotEventListeners = () => {
-    if (!elements.d2dArea) return;
+    if (!elements.d2dArea) {
+        console.warn("d2d-area element not found");
+        return;
+    }
     elements.d2dArea.addEventListener('pointerdown', (e) => {
         if (e.target.classList.contains('dot')) {
             handlePointerDown(e, e.target);
@@ -279,14 +316,20 @@ const setupSpecialButtonListeners = () => {
 // 実行ボタンリスナーの設定
 const setupExecuteButtonListener = () => {
     if (elements.executeButton) {
-        elements.executeButton.addEventListener('click', executeEditorCode);
+        console.log("Setting up execute button listener");
+        elements.executeButton.addEventListener('click', executeCode);
+    } else {
+        console.warn("Execute button not found");
     }
 };
 
 // クリアボタンリスナーの設定
 const setupClearButtonListener = () => {
     if (elements.clearButton) {
+        console.log("Setting up clear button listener");
         elements.clearButton.addEventListener('click', clearInput);
+    } else {
+        console.warn("Clear button not found");
     }
 };
 

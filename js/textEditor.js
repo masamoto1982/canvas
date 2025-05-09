@@ -1,4 +1,4 @@
-import { elements, appState, focusOnInput, showTextSection, isMobileDevice } from './config.js';
+import { elements, appState, focusOnInput, showTextSection, isMobileDevice, showOutputSection } from './config.js';
 
 // 色付きテキストの挿入
 export const insertColoredText = (text, color) => {
@@ -124,7 +124,12 @@ export const handleDeleteAction = (deleteToken = false) => {
 // リッチテキストエディタの初期化
 export const initRichTextEditor = () => {
     const editor = elements.input;
-    if (!editor) return;
+    if (!editor) {
+        console.warn("Text editor element not found");
+        return;
+    }
+    
+    console.log("Initializing rich text editor");
     
     appState.editorState.currentColor = 'black';
     
@@ -149,6 +154,7 @@ export const initRichTextEditor = () => {
     
     colorButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+            console.log(`Color button clicked: ${btn.dataset.color}`);
             applyColor(btn.dataset.color);
         });
     });
@@ -180,42 +186,6 @@ export const initRichTextEditor = () => {
     });
     
     focusOnInput();
-};
-
-// コード実行
-export const executeCode = () => {
-    const editor = elements.input;
-    const output = elements.output;
     
-    if (!editor || !output) return;
-    
-    const code = editor.innerText || '';
-    
-    if (!code.trim()) return;
-    
-    try {
-        // インタープリタは別途importする側で提供することを前提に
-        // 実行結果は外部から渡された関数で処理
-        if (window.executeCodeCallback) {
-            const result = window.executeCodeCallback(code);
-            
-            if (typeof result === 'string' && result.startsWith("エラー:")) {
-                output.value = result;
-            } else {
-                output.value = result !== undefined ? String(result) : "実行完了";
-                output.classList.add('executed');
-                setTimeout(() => output.classList.remove('executed'), 300);
-                
-                // 実行成功したら入力をクリア
-                editor.innerHTML = '';
-            }
-            
-            showOutputSection();
-        }
-    } catch (err) {
-        output.value = `致命的なエラー: ${err.message}`;
-        showOutputSection();
-    }
-    
-    focusOnInput();
+    console.log("Rich text editor initialized");
 };

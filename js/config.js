@@ -28,7 +28,7 @@ export const CONFIG = {
     }
 };
 
-// DOM要素の参照
+// DOM要素の参照 - 遅延評価
 export const elements = {
     get dotGrid() { return document.getElementById('dot-grid'); },
     get specialRow() { return document.getElementById('special-row'); },
@@ -96,6 +96,9 @@ export const showTextSection = () => {
 export const showOutputSection = () => {
     if (isMobileDevice() && elements.textSection && elements.outputSection) {
         elements.textSection.classList.add('hide');
+        elements.outputSection.classList.remove('hide');
+    } else if (elements.outputSection) {
+        // デスクトップの場合でも出力セクションが見えるようにする
         elements.outputSection.classList.remove('hide');
     }
 };
