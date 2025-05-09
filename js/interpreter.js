@@ -40,7 +40,7 @@ export const createInterpreter = () => {
       });
     }
     
-    // 元のコード処理部分は変更なし
+    // コメントと特殊記法の処理
     code = code.replace(/#.*$/gm, '');
     code = code.replace(/\s*:\s*[a-zA-Z_]+\b/g, '');
     code = code.replace(/(\d+)\/(\d+)/g, '$1_FRAC_$2');
@@ -132,18 +132,29 @@ export const createInterpreter = () => {
       });
     }
 
-    // 特定の演算子は常に黒（UNDEFINED型）として扱う
+    // 特殊演算子と論理値の処理
     return tokens
       .filter(t => t.value.trim() !== '')
       .map(t => {
+        // 分数表記の処理
         if (t.value.includes('_FRAC_')) {
           t.value = t.value.replace('_FRAC_', '/');
         }
+        
         // 演算子は常に黒色（UNDEFINED型）として扱う
         if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(t.value)) {
           t.type = Types.UNDEFINED;
           t.color = 'black';
         }
+        
+        // TRUE/FALSE リテラルの処理
+        if (t.value === 'TRUE' || t.value === 'FALSE') {
+          if (t.type !== Types.BOOLEAN && t.type !== Types.UNDEFINED) {
+            console.warn(`Warning: Boolean literal ${t.value} should be marked as boolean type`);
+          }
+          t.literalType = 'boolean';
+        }
+        
         return t;
       });
   };
@@ -153,6 +164,16 @@ export const createInterpreter = () => {
     const parseExpression = (index) => {
       if (index >= tokens.length) throw new Error('Unexpected end of input');
       const token = tokens[index];
+      
+      // 論理値リテラルの処理
+      if (token.value === 'TRUE' || token.value === 'FALSE') {
+        return { 
+          type: 'boolean', 
+          value: token.value === 'TRUE', 
+          nextIndex: index + 1,
+          dataType: Types.BOOLEAN
+        };
+      }
       
       // 数値の処理
       if (/^-?\d+(\.\d+)?$/.test(token.value) || /^-?\d+\/\d+$/.test(token.value)) {
@@ -258,7 +279,9 @@ export const createInterpreter = () => {
       if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
         if (token.value === '=') {
           // 代入の処理
-          if (index + 2 >= tokens.length) throw new Error('Invalid assignment expression');
+          if (index + 1 >= tokens.length) throw new Error('Invalid assignment expression: missing variable name');
+          if (index + 2 >= tokens.length) throw new Error('Invalid assignment expression: missing value');
+          
           const varToken = tokens[index + 1];
           const varName = varToken.value;
           
@@ -404,6 +427,14 @@ export const createInterpreter = () => {
         };
       };
       
+      const evalBoolean = () => {
+        // 論理値ノードの評価
+        return {
+          value: node.value,
+          type: Types.BOOLEAN
+        };
+      };
+      
       const evalString = () => {
         // 文字列ノードの評価
         return {
@@ -436,6 +467,21 @@ export const createInterpreter = () => {
           };
         }
         
+        // 論理演算の特別処理
+        if (['&&', '||'].includes(node.operator) && 
+            leftResult.type === Types.BOOLEAN && rightResult.type === Types.BOOLEAN) {
+          let result;
+          if (node.operator === '&&') {
+            result = leftResult.value && rightResult.value;
+          } else {
+            result = leftResult.value || rightResult.value;
+          }
+          return {
+            value: result,
+            type: Types.BOOLEAN
+          };
+        }
+        
         // 数値演算
         if (typeof leftResult.value === 'string' || typeof rightResult.value === 'string') {
           if (node.operator !== '+') {
@@ -462,20 +508,24 @@ export const createInterpreter = () => {
           throw new Error(`Unknown operator: ${node.operator}`);
         }
         
-        const result = ops[node.operator](leftResult.value, rightResult.value);
-        
-        // 比較演算子は論理型を返す
-        if (['>', '>=', '=='].includes(node.operator)) {
+        try {
+          const result = ops[node.operator](leftResult.value, rightResult.value);
+          
+          // 比較演算子は論理型を返す
+          if (['>', '>=', '=='].includes(node.operator)) {
+            return {
+              value: result,
+              type: Types.BOOLEAN
+            };
+          }
+          
           return {
             value: result,
-            type: Types.BOOLEAN
+            type: Types.NUMBER
           };
+        } catch (err) {
+          throw new Error(`Operation error: ${err.message}`);
         }
-        
-        return {
-          value: result,
-          type: Types.NUMBER
-        };
       };
       
       const evalAssignment = () => {
@@ -538,6 +588,7 @@ export const createInterpreter = () => {
       
       const table = {
         number: evalNumber,
+        boolean: evalBoolean,
         string: evalString,
         variable: evalVariable,
         operation: evalOperation,
@@ -563,13 +614,22 @@ export const createInterpreter = () => {
 
   const execute = (code) => {
     try {
+      // デバッグ情報の出力
+      console.log("Executing code:", code.trim());
+      
       // トークン化と構文解析
       const tokens = tokenize(code);
+      console.log("Tokens:", tokens);
+      
       const ast = parse(tokens);
+      console.log("AST:", ast);
+      
       const result = evaluate(ast);
+      console.log("Result:", result);
       
       return result?.toString ? result.toString() : result;
     } catch (err) {
+      console.error("Execution error:", err);
       return `Error: ${err.message}`;
     }
   };
