@@ -132,11 +132,17 @@ export const createInterpreter = () => {
       });
     }
 
+    // 特定の演算子は常に黒（UNDEFINED型）として扱う
     return tokens
       .filter(t => t.value.trim() !== '')
       .map(t => {
         if (t.value.includes('_FRAC_')) {
           t.value = t.value.replace('_FRAC_', '/');
+        }
+        // 演算子は常に黒色（UNDEFINED型）として扱う
+        if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(t.value)) {
+          t.type = Types.UNDEFINED;
+          t.color = 'black';
         }
         return t;
       });
@@ -312,7 +318,7 @@ export const createInterpreter = () => {
             }
           }
           
-          // 変数の型を設定/更新
+          // 変数の型を設定/更新 - 変数名の色による型を優先
           state.variables[varName] = {
             type: varToken.type !== Types.UNDEFINED ? varToken.type : valueExpr.dataType,
             value: null // 評価時に設定

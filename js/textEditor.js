@@ -11,6 +11,17 @@ export const insertColoredText = (text, color) => {
     if (text === '\n') {
         // 改行の挿入 - <br>タグを使用
         document.execCommand('insertHTML', false, '<br>');
+        // 改行後は黒色に戻す
+        appState.editorState.currentColor = 'black';
+    } else if (text === ' ') {
+        // 空白の挿入 - 現在の色で挿入
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('foreColor', false, color);
+        document.execCommand('insertText', false, text);
+        // 空白後は黒色に戻す
+        appState.editorState.currentColor = 'black';
+        // キャレット色も更新
+        editor.style.caretColor = 'black';
     } else {
         // 通常のテキスト挿入 - 色を適用して挿入
         document.execCommand('styleWithCSS', false, true);
@@ -19,15 +30,14 @@ export const insertColoredText = (text, color) => {
     }
 };
 
-// 色変更の挿入
+// 色変更の挿入（黒色に戻さないバージョン）
 export const insertColorChange = (color) => {
     const editor = elements.input;
     if (!editor) return;
     
-    // 色を変更
+    // 色を変更（空白は挿入しない）
     document.execCommand('styleWithCSS', false, true);
     document.execCommand('foreColor', false, color);
-    document.execCommand('insertText', false, ' ');
 };
 
 // カーソル位置に文字を挿入
@@ -35,9 +45,9 @@ export const insertAtCursor = (text) => {
     const editor = elements.input;
     if (!editor) return;
     
-    const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'black';
+    const currentColor = appState.editorState.currentColor || 'black';
     
-    insertColoredText(text, currentActiveColor);
+    insertColoredText(text, currentColor);
     
     if (isMobileDevice()) showTextSection();
     focusOnInput();
@@ -47,6 +57,8 @@ export const insertAtCursor = (text) => {
 export const clearInput = () => {
     if (elements.input) {
         elements.input.innerHTML = '';
+        // 初期色を黒に設定
+        appState.editorState.currentColor = 'black';
         focusOnInput();
     }
 };
@@ -131,22 +143,23 @@ export const initRichTextEditor = () => {
     
     console.log("Initializing rich text editor");
     
+    // 初期色を黒に設定
     appState.editorState.currentColor = 'black';
     
-    // 色ボタンの設定
-    const colorButtons = document.querySelectorAll('.color-btn');
+    // 色ボタンの設定（黒ボタンを除外）
+    const colorButtons = document.querySelectorAll('.color-btn:not(#color-black)');
     
-    editor.style.caretColor = appState.editorState.currentColor;
+    editor.style.caretColor = 'black';
     
     const applyColor = (color) => {
-        appState.editorState.currentColor = color;
-        
+        // 色ボタンのアクティブ状態更新
         colorButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.color === color);
         });
         
+        // 新しい色を設定
+        appState.editorState.currentColor = color;
         editor.style.caretColor = color;
-        
         insertColorChange(color);
         
         editor.focus();
@@ -161,7 +174,7 @@ export const initRichTextEditor = () => {
     
     // キー入力ハンドラ
     editor.addEventListener('keydown', (e) => {
-        if (e.key.length !== 1 && !['Enter', 'Tab'].includes(e.key)) return;
+        if (e.key.length !== 1 && !['Enter', 'Tab', ' '].includes(e.key)) return;
         
         if (e.ctrlKey || e.metaKey) return;
         
@@ -169,11 +182,25 @@ export const initRichTextEditor = () => {
         
         if (e.key === 'Tab') {
             insertColoredText('    ', appState.editorState.currentColor);
+            // タブ後は黒色に戻す
+            appState.editorState.currentColor = 'black';
+            editor.style.caretColor = 'black';
             return;
         }
         
         const char = e.key === 'Enter' ? '\n' : e.key;
         insertColoredText(char, appState.editorState.currentColor);
+        
+        // 空白や改行後は黒色に戻す
+        if (e.key === ' ' || e.key === 'Enter') {
+            appState.editorState.currentColor = 'black';
+            editor.style.caretColor = 'black';
+            
+            // 色ボタンのアクティブ状態をクリア
+            colorButtons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+        }
     });
     
     // ペーストハンドラ
@@ -182,7 +209,19 @@ export const initRichTextEditor = () => {
         
         const text = e.clipboardData.getData('text/plain');
         
+        // ペーストされたテキストを現在の色で挿入
         insertColoredText(text, appState.editorState.currentColor);
+        
+        // 空白を含む場合は黒色に戻す
+        if (text.includes(' ') || text.includes('\n')) {
+            appState.editorState.currentColor = 'black';
+            editor.style.caretColor = 'black';
+            
+            // 色ボタンのアクティブ状態をクリア
+            colorButtons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+        }
     });
     
     focusOnInput();
