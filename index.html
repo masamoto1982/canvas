@@ -47,6 +47,13 @@
         </div>
     </article>
 
+    <script>
+        // ページロード前のデバッグスクリプト
+        console.log("Page loading...");
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript error:', e.message, 'at', e.filename, 'line', e.lineno);
+        });
+    </script>
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
