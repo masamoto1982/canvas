@@ -284,6 +284,18 @@ section:last-child {
     transform: scale(0.95);
 }
 
+.special-button.clicked {
+    background-color: #e5e7eb;
+    transform: scale(0.95);
+    transition: transform 0.1s, background-color 0.1s;
+}
+
+.special-button.double-clicked {
+    background-color: #93c5fd;
+    transform: scale(0.95);
+    transition: transform 0.1s, background-color 0.1s;
+}
+
 #special-row .dot.numeric {
     flex-shrink: 0;
 }

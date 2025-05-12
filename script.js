@@ -607,9 +607,9 @@ const insertColoredText = (text, color) => {
     // エディタにフォーカスを当てる
     editor.focus();
     
-    // 改行の場合
+    // 改行の場合は専用関数を使用
     if (text === '\n') {
-        document.execCommand('insertHTML', false, '<br>');
+        insertNewline();
         return;
     }
     
@@ -617,8 +617,40 @@ const insertColoredText = (text, color) => {
     document.execCommand('styleWithCSS', false, true);
     document.execCommand('foreColor', false, color);
     
-    // テキスト挿入（マーカーなし）
+    // テキストを挿入
     document.execCommand('insertText', false, text);
+};
+
+// 改行を挿入する専用関数を追加
+const insertNewline = () => {
+    const editor = elements.input;
+    if (!editor) return;
+    
+    // エディタにフォーカスを当てる
+    editor.focus();
+    
+    // Range APIを使用して改行を挿入
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const br = document.createElement('br');
+        
+        // 範囲を維持して改行を挿入
+        range.deleteContents();
+        range.insertNode(br);
+        
+        // カーソルを改行の後ろに移動
+        range.setStartAfter(br);
+        range.setEndAfter(br);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        // カーソルが見えるようにスクロール
+        br.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        // 選択範囲がない場合はHTML挿入
+        document.execCommand('insertHTML', false, '<br><br>');
+    }
 };
 
 const insertColorChange = (color) => {
@@ -635,9 +667,18 @@ const insertAtCursor = (text) => {
     const editor = elements.input;
     if (!editor) return;
     
-    const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'black';
-    
-    insertColoredText(text, currentActiveColor);
+    // 空白文字の場合は色を黒に変更
+    if (text === ' ') {
+        const currentColorBtn = document.querySelector('.color-btn.active');
+        if (currentColorBtn) {
+            currentColorBtn.classList.remove('active');
+        }
+        editor.style.caretColor = 'black';
+        insertColoredText(text, 'black');
+    } else {
+        const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'black';
+        insertColoredText(text, currentActiveColor);
+    }
     
     if (isMobileDevice()) showTextSection();
     focusOnInput();
@@ -966,16 +1007,33 @@ const handleSpecialButtonClick = (e, type, actions) => {
         specialButtonState.clickCount = 0;
         specialButtonState.clickTarget = null;
         specialButtonState.clickTimer = null;
-        if (actions.double) actions.double();
+        
+        // ダブルクリックアクション
+        if (actions.double) {
+            actions.double();
+            // 視覚的フィードバック
+            if (e.target) {
+                e.target.classList.add('double-clicked');
+                setTimeout(() => e.target.classList.remove('double-clicked'), 200);
+            }
+        }
     } else {
         // シングルクリック処理
         specialButtonState.clickCount = 1;
         specialButtonState.lastClickTime = now;
         specialButtonState.clickTarget = type;
+        
         clearTimeout(specialButtonState.clickTimer);
         specialButtonState.clickTimer = setTimeout(() => {
             if (specialButtonState.clickCount === 1 && specialButtonState.clickTarget === type) {
-                if (actions.single) actions.single();
+                if (actions.single) {
+                    actions.single();
+                    // 視覚的フィードバック
+                    if (e.target) {
+                        e.target.classList.add('clicked');
+                        setTimeout(() => e.target.classList.remove('clicked'), 200);
+                    }
+                }
             }
             specialButtonState.clickCount = 0;
             specialButtonState.clickTarget = null;
@@ -1152,7 +1210,7 @@ const setupSpecialButtonListeners = () => {
     const spaceBtn = elements.specialRow ? elements.specialRow.querySelector('[data-action="space"]') : null;
 
     if (deleteBtn) {
-        // 削除ボタンの処理はそのまま
+        // 削除ボタンの処理
         deleteBtn.addEventListener('pointerup', e => handleSpecialButtonClick(e, 'delete', {
             single: () => handleDeleteAction(false),
             double: () => handleDeleteAction(true)
@@ -1161,18 +1219,31 @@ const setupSpecialButtonListeners = () => {
     }
 
     if (spaceBtn) {
-    // 改行ボタンの処理を変更
-    spaceBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const editor = elements.input;
-        if (editor) {
-            // 直接改行を挿入
-            document.execCommand('insertHTML', false, '<br>');
-            editor.focus();
-        }
-    });
-}
-
+        // 空白/改行ボタンの処理
+        spaceBtn.addEventListener('pointerup', e => handleSpecialButtonClick(e, 'space', {
+            single: () => {
+                // シングルクリック: 空白挿入（黒色に変更）
+                const editor = elements.input;
+                if (editor) {
+                    const currentActiveColorBtn = document.querySelector('.color-btn.active');
+                    if (currentActiveColorBtn) {
+                        currentActiveColorBtn.classList.remove('active');
+                    }
+                    // 黒色に切り替え
+                    editor.style.caretColor = 'black';
+                    insertAtCursor(' ');
+                }
+            },
+            double: () => {
+                // ダブルクリック: 改行挿入
+                const editor = elements.input;
+                if (editor) {
+                    insertNewline();
+                }
+            }
+        }));
+        spaceBtn.addEventListener('pointerdown', e => e.preventDefault());
+    }
 };
 
 const setupExecuteButtonListener = () => {
@@ -1338,17 +1409,12 @@ function initKeypad() {
     elements.specialRow.appendChild(zeroBtn);
 
     // initKeypad内の改行ボタン作成部分
-    const spaceBtn = document.createElement('div');
-    spaceBtn.className = 'special-button space';
-    spaceBtn.textContent = '改行';
-    spaceBtn.dataset.action = 'space';
-    spaceBtn.title = '改行を挿入';
-    // 直接イベントハンドラを追加
-    spaceBtn.onclick = (e) => {
-        e.preventDefault();
-        document.execCommand('insertHTML', false, '<br>');
-        focusOnInput();
-    };
+	const spaceBtn = document.createElement('div');
+　　spaceBtn.className = 'special-button space';
+　　spaceBtn.textContent = '空白/改行';
+　　spaceBtn.dataset.action = 'space';
+　　spaceBtn.title = 'シングルクリック: 空白挿入\nダブルクリック: 改行';
+　　elements.specialRow.appendChild(spaceBtn);
 
     elements.specialRow.appendChild(spaceBtn);
 
@@ -1410,11 +1476,19 @@ const initRichTextEditor = () => {
         });
     });
     
+    // 直接エディタに対するキーイベントを処理
     editor.addEventListener('keydown', (e) => {
         // Shift+Enterでプログラム実行
         if (e.key === 'Enter' && e.shiftKey) {
             e.preventDefault();
             executeCode();
+            return;
+        }
+        
+        // 通常のEnterキーで改行
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            insertNewline();
             return;
         }
         
@@ -1444,27 +1518,27 @@ const initRichTextEditor = () => {
             colorButtons.forEach(btn => {
                 btn.classList.remove('active');
             });
-            // スペースは文字として挿入する処理を継続（下の処理で挿入される）
+            // スペースは文字として挿入する処理を継続
         }
         
-        if (e.key.length !== 1 && !['Enter', 'Tab'].includes(e.key)) return;
-        
-        e.preventDefault();
-        
-        if (e.key === 'Tab') {
-            insertColoredText('    ', currentColor);
+        // 通常のキー入力
+        if (e.key.length === 1) {  // 単一文字の入力
+            e.preventDefault();
+            insertColoredText(e.key, currentColor);
             return;
         }
         
-        const char = e.key === 'Enter' ? '\n' : e.key;
-        insertColoredText(char, currentColor);
+        // Tabキーの処理
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            insertColoredText('    ', currentColor);
+            return;
+        }
     });
     
     editor.addEventListener('paste', (e) => {
         e.preventDefault();
-        
         const text = e.clipboardData.getData('text/plain');
-        
         insertColoredText(text, currentColor);
     });
     
