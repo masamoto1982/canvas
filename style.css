@@ -70,7 +70,7 @@ section:last-child {
     resize: vertical;
     min-height: 80px;
     height: 500px; /* Desktop default height */
-    max-height: 300px;
+    max-height: 500px;
     transition: background-color 0.3s;
     overflow-y: auto;
     font-family: monospace;
@@ -115,7 +115,6 @@ section:last-child {
 .color-btn {
     padding: 8px 12px;
     border: none;
-    border-radius: 4px;
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s;

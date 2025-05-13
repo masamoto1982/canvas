@@ -72,379 +72,413 @@ const Fraction = (() => {
     }
     return constructor(parseFloat(str), 1, isFractionOp);
   };
+  
+  // 型チェックを追加
+  constructor.isValidNumber = (value) => {
+    return typeof value === 'object' && 
+           value !== null && 
+           'numerator' in value && 
+           'denominator' in value;
+  };
+  
   return constructor;
 })();
 
-// Interpreter - 名前変更
-const interpreter = (() => {
-  const state = {
-    variables: {},
-    functions: {},
-  };
-
-  const tokenize = (code) => {
-    code = code.replace(/#.*$/gm, '');
-    code = code.replace(/\s*:\s*[a-zA-Z_]+\b/g, '');
-    code = code.replace(/(\d+)\/(\d+)/g, '$1_FRAC_$2');
-
-    // 不要になった色マーカー処理は削除
-    
-    const tokens = [];
-    let current = '';
-    let inString = false;
-    let stringChar = '';
-
-    for (let i = 0; i < code.length; i++) {
-      const char = code[i];
-      if (inString) {
-        if (char === stringChar && code[i - 1] !== '\\') {
-          inString = false;
-          current += char;
-          tokens.push(current);
-          current = '';
-        } else {
-          current += char;
-        }
-      } else if (char === '"' || char === "'") {
-        if (current.trim()) {
-          tokens.push(current.trim());
-          current = '';
-        }
-        inString = true;
-        stringChar = char;
-        current = char;
-      } else if (/\s/.test(char)) {
-        if (current.trim()) {
-          tokens.push(current.trim());
-          current = '';
-        }
-      } else if (['(', ')', ',', ';', ':'].includes(char)) {
-        if (current.trim()) {
-          tokens.push(current.trim());
-          current = '';
-        }
-        if (char !== ':') tokens.push(char);
-      } else {
-        current += char;
-      }
-    }
-    if (current.trim()) tokens.push(current.trim());
-
-    return tokens.map((t) => (t.includes('_FRAC_') ? t.replace('_FRAC_', '/') : t)).filter((t) => t.trim() !== '');
+// 型の定義
+const Types = {
+  NUMBER: 'number',
+  BOOLEAN: 'boolean',
+  STRING: 'string',
+  SYMBOL: 'symbol',
+  UNDEFINED: 'undefined'
 };
 
-  const parse = (tokens) => {
-    const parseExpression = (index) => {
-      if (index >= tokens.length) throw new Error('Unexpected end of input');
-      const token = tokens[index];
-      
-      // 型変換関数の処理を追加
-      if (token === 'BOOL' && tokens[index + 1] === '(') {
-        const argExpr = parseExpression(index + 2);
-        if (tokens[argExpr.nextIndex] !== ')') throw new Error('Expected ) after BOOL argument');
-        return { 
-            type: 'type_conversion', 
-            targetType: 'boolean', 
-            value: argExpr, 
-            nextIndex: argExpr.nextIndex + 1 
-        };
-      }
-      
-      if (token === 'NUM' && tokens[index + 1] === '(') {
-        const argExpr = parseExpression(index + 2);
-        if (tokens[argExpr.nextIndex] !== ')') throw new Error('Expected ) after NUM argument');
-        return { 
-            type: 'type_conversion', 
-            targetType: 'number', 
-            value: argExpr, 
-            nextIndex: argExpr.nextIndex + 1 
-        };
-      }
-      
-      if (token === 'STR' && tokens[index + 1] === '(') {
-        const argExpr = parseExpression(index + 2);
-        if (tokens[argExpr.nextIndex] !== ')') throw new Error('Expected ) after STR argument');
-        return { 
-            type: 'type_conversion', 
-            targetType: 'string', 
-            value: argExpr, 
-            nextIndex: argExpr.nextIndex + 1 
-        };
-      }
-      
-      if (/^-?\d+(\.\d+)?$/.test(token) || /^-?\d+\/\d+$/.test(token)) {
-        let value;
-        const isFraction = token.includes('/');
-        if (isFraction) {
-          const [n, d] = token.split('/').map(Number);
-          value = Fraction(n, d, true);
-        } else {
-          value = Fraction(parseFloat(token), 1, false);
-        }
-        return { type: 'number', value, isFraction, nextIndex: index + 1 };
-      }
-      if (/^["'].*["']$/.test(token)) {
-        return { type: 'string', value: token.slice(1, -1), nextIndex: index + 1 };
-      }
-      if (/^[A-Z][A-Z0-9_]*$/.test(token)) {
-        if (tokens[index + 1] === '(') {
-          let paramIndex = index + 2;
-          const args = [];
-          while (paramIndex < tokens.length && tokens[paramIndex] !== ')') {
-            const arg = parseExpression(paramIndex);
-            args.push(arg);
-            paramIndex = arg.nextIndex;
-            if (tokens[paramIndex] === ',') paramIndex++;
-          }
-          if (tokens[paramIndex] !== ')') throw new Error('Expected ) after function arguments');
-          return { type: 'function_call', name: token, arguments: args, nextIndex: paramIndex + 1 };
-        }
-        if (state.functions[token] && index + 1 < tokens.length) {
-          const { params } = state.functions[token];
-          if (params.length) {
-            const args = [];
-            let argIndex = index + 1;
-            for (let i = 0; i < params.length; i++) {
-              const argExpr = parseExpression(argIndex);
-              args.push(argExpr);
-              argIndex = argExpr.nextIndex;
-            }
-            return { type: 'function_call', name: token, arguments: args, nextIndex: argIndex };
-          }
-        }
-        return { type: 'variable', name: token, nextIndex: index + 1 };
-      }
-      if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token)) {
-        if (token === '=') {
-          if (index + 2 >= tokens.length) throw new Error('Invalid assignment expression');
-          const varName = tokens[index + 1];
+// 色と型のマッピング
+const ColorTypes = {
+  'green': Types.NUMBER,
+  'red': Types.BOOLEAN,
+  'blue': Types.STRING,
+  'black': Types.SYMBOL
+};
 
-          if (tokens[index + 2] === '(' && /^[A-Z][A-Z0-9_]*$/.test(varName)) {
-            let paramIndex = index + 3;
-            const params = [];
-            while (paramIndex < tokens.length && tokens[paramIndex] !== ')') {
-              if (!/^[A-Z][A-Z0-9_]*$/.test(tokens[paramIndex])) throw new Error(`Invalid parameter name: ${tokens[paramIndex]}`);
-              params.push(tokens[paramIndex]);
-              paramIndex++;
-              if (tokens[paramIndex] === ',') paramIndex++;
-            }
-            if (tokens[paramIndex] !== ')') throw new Error('Expected ) after function parameters');
-            const bodyExpr = parseExpression(paramIndex + 1);
-            state.functions[varName] = { params, body: bodyExpr };
-            return { type: 'function_definition', name: varName, params, body: bodyExpr, nextIndex: bodyExpr.nextIndex };
-          }
-          const valueExpr = parseExpression(index + 2);
-          return { type: 'assignment', variable: varName, value: valueExpr, nextIndex: valueExpr.nextIndex };
-        }
-        const left = parseExpression(index + 1);
-        const right = parseExpression(left.nextIndex);
-        return { type: 'operation', operator: token, left, right, nextIndex: right.nextIndex };
-      }
-      throw new Error(`Unexpected token: ${token}`);
-    };
-
-    const expressions = [];
-    let i = 0;
-    while (i < tokens.length) {
-      const expr = parseExpression(i);
-      expressions.push(expr);
-      i = expr.nextIndex;
-      if (tokens[i] === ';') i++;
+// RGB値を色名に変換する関数
+const rgbToColorName = (rgb) => {
+  let r, g, b;
+  
+  if (rgb.startsWith('rgb')) {
+    const matches = rgb.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+    if (matches) {
+      r = parseInt(matches[1]);
+      g = parseInt(matches[2]);
+      b = parseInt(matches[3]);
     }
+  } else if (rgb.startsWith('#')) {
+    const hex = rgb.substring(1);
+    r = parseInt(hex.substr(0, 2), 16);
+    g = parseInt(hex.substr(2, 2), 16);
+    b = parseInt(hex.substr(4, 2), 16);
+  }
+  
+  // 赤色系 (#FF4B00)
+  if (r > 200 && g < 150 && b < 100) {
+    return 'red';
+  }
+  // 緑色系 (#03AF7A)
+  else if (r < 100 && g > 150 && b < 150) {
+    return 'green';
+  }
+  // 青色系 (#005AFF)
+  else if (r < 100 && g < 150 && b > 200) {
+    return 'blue';
+  }
+  
+  return 'black';
+};
+
+// トークナイザー - エディタのDOM内容から色情報付きトークンを抽出
+const tokenize = (editor) => {
+  if (!editor) return [];
+  
+  const tokens = [];
+  
+  // エディタのDOM内容を走査して色情報付きトークンを抽出
+  const extractTokens = (node, currentColor = 'black') => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      // テキストノードからトークンを抽出
+      const text = node.textContent;
+      const color = node.parentNode && node.parentNode.style && node.parentNode.style.color
+        ? rgbToColorName(node.parentNode.style.color)
+        : currentColor;
+      
+      // 空白で区切ってトークンを抽出
+      const parts = text.trim().split(/\s+/);
+      for (const part of parts) {
+        if (part) {
+          tokens.push({
+            value: part,
+            color: color,
+            type: ColorTypes[color] || Types.UNDEFINED
+          });
+        }
+      }
+    } else if (node.nodeName === 'BR') {
+      // 改行は無視
+    } else if (node.childNodes && node.childNodes.length > 0) {
+      // 子ノードを再帰的に処理
+      Array.from(node.childNodes).forEach(child => {
+        const nodeColor = node.style && node.style.color 
+          ? rgbToColorName(node.style.color) 
+          : currentColor;
+        extractTokens(child, nodeColor);
+      });
+    }
+  };
+  
+  // エディタのルート要素から走査を開始
+  Array.from(editor.childNodes).forEach(node => {
+    extractTokens(node);
+  });
+  
+  // コメントの削除（#から行末まで）
+  const filteredTokens = [];
+  let skipRestOfLine = false;
+  
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i].value === '#') {
+      skipRestOfLine = true;
+    } else if (tokens[i].value.includes('\n')) {
+      skipRestOfLine = false;
+    }
+    
+    if (!skipRestOfLine) {
+      filteredTokens.push(tokens[i]);
+    }
+  }
+  
+  return filteredTokens;
+};
+
+// パーサー - トークンからASTを構築
+const parse = (tokens) => {
+  let position = 0;
+  
+  const peek = () => tokens[position] || null;
+  const consume = () => tokens[position++];
+  const isAtEnd = () => position >= tokens.length;
+  
+  // 式をパース
+  const parseExpression = () => {
+    if (isAtEnd()) return null;
+    
+    const token = peek();
+    
+    // 演算子（前置記法）
+    if (['+', '-', '*', '/', '>', '>=', '=='].includes(token.value)) {
+      if (token.color !== 'green' && token.type !== Types.SYMBOL) {
+        throw new Error(`Type Error: Operator '${token.value}' must be a Number type (green) or Symbol type (black), found ${token.color}`);
+      }
+      
+      const operator = consume().value;
+      const left = parseExpression();
+      const right = parseExpression();
+      
+      if (!left || !right) {
+        throw new Error(`Syntax Error: Operator '${operator}' requires two operands`);
+      }
+      
+      return {
+        type: 'operation',
+        operator: operator,
+        left: left,
+        right: right
+      };
+    }
+    
+    // 代入（前置記法）
+    if (token.value === '=') {
+      consume(); // '='を消費
+      
+      const variableToken = peek();
+      if (!variableToken || variableToken.color !== 'black' || !/^[A-Z][A-Z0-9_]*$/.test(variableToken.value)) {
+        throw new Error(`Syntax Error: Expected variable name after '=', found ${variableToken ? variableToken.value : 'end of input'}`);
+      }
+      
+      const variable = consume().value;
+      const value = parseExpression();
+      
+      if (!value) {
+        throw new Error(`Syntax Error: Expected value after variable name in assignment`);
+      }
+      
+      return {
+        type: 'assignment',
+        variable: variable,
+        value: value
+      };
+    }
+    
+    // 変数参照
+    if (token.color === 'black' && /^[A-Z][A-Z0-9_]*$/.test(token.value)) {
+      return {
+        type: 'variable',
+        name: consume().value
+      };
+    }
+    
+    // リテラル値
+    if (token.type === Types.NUMBER) {
+      const value = consume().value;
+      // 分数表記のチェック
+      if (value.includes('/')) {
+        const [numerator, denominator] = value.split('/').map(Number);
+        if (isNaN(numerator) || isNaN(denominator) || denominator === 0) {
+          throw new Error(`Invalid fraction: ${value}`);
+        }
+        return {
+          type: Types.NUMBER,
+          value: Fraction(numerator, denominator, true)
+        };
+      } else {
+        const numValue = parseFloat(value);
+        if (isNaN(numValue)) {
+          throw new Error(`Invalid number: ${value}`);
+        }
+        return {
+          type: Types.NUMBER,
+          value: Fraction(numValue, 1, false)
+        };
+      }
+    }
+    
+    if (token.type === Types.BOOLEAN) {
+      const value = consume().value.toLowerCase();
+      return {
+        type: Types.BOOLEAN,
+        value: value === 'true'
+      };
+    }
+    
+    if (token.type === Types.STRING) {
+      let value = consume().value;
+      // 引用符があれば取り除く
+      if ((value.startsWith('"') && value.endsWith('"')) || 
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.substring(1, value.length - 1);
+      }
+      return {
+        type: Types.STRING,
+        value: value
+      };
+    }
+    
+    throw new Error(`Unexpected token: ${token.value} with color ${token.color}`);
+  };
+  
+  // プログラム全体のパース
+  const parseProgram = () => {
+    const expressions = [];
+    
+    while (!isAtEnd()) {
+      const expr = parseExpression();
+      if (expr) {
+        expressions.push(expr);
+      }
+    }
+    
     return expressions;
   };
+  
+  return parseProgram();
+};
 
-  const evaluate = (ast, env = { variables: state.variables, functions: state.functions }) => {
-    const evaluateNode = (node, scope = env) => {
-      const evalNumber = () => node.value;
-      const evalVariable = () => {
-        if (scope.variables.hasOwnProperty(node.name)) return scope.variables[node.name];
-        throw new Error(`Undefined variable: ${node.name}`);
-      };
-      const evalOperation = () => {
-        const left = evaluateNode(node.left, scope);
-        const right = evaluateNode(node.right, scope);
-        if (typeof left === 'string' || typeof right === 'string') {
-          if (node.operator === '+') return String(left) + String(right);
-          throw new Error(`Cannot apply operator ${node.operator} to strings`);
-        }
-        const ops = {
-          '+': (a, b) => a.add(b, false),
-          '-': (a, b) => a.subtract(b, false),
-          '*': (a, b) => a.multiply(b, false),
-          '/': (a, b) => a.divide(b, true),
-          '>': (a, b) => a.greaterThan(b),
-          '>=': (a, b) => a.greaterThanOrEqual(b),
-          '==': (a, b) => a.equals(b),
-        };
-        if (ops[node.operator]) return ops[node.operator](left, right);
-        throw new Error(`Unknown operator: ${node.operator}`);
-      };
-      const evalAssignment = () => {
-        const val = evaluateNode(node.value, scope);
-        scope.variables[node.variable] = val;
-        return val;
-      };
-      const evalFunctionDefinition = () => {
-        scope.functions[node.name] = { params: node.params, body: node.body };
-        return `Function ${node.name} defined`;
-      };
-      const evalFunctionCall = () => {
-        if (!scope.functions.hasOwnProperty(node.name)) throw new Error(`Undefined function: ${node.name}`);
-        const func = scope.functions[node.name];
-        if (func.params.length !== node.arguments.length) throw new Error(`Expected ${func.params.length} arguments, got ${node.arguments.length}`);
-        const fnScope = { variables: { ...scope.variables }, functions: scope.functions };
-        node.arguments.forEach((arg, idx) => {
-          fnScope.variables[func.params[idx]] = evaluateNode(arg, scope);
-        });
-        return evaluateNode(func.body, fnScope);
-      };
+// インタプリタ - ASTを評価
+const interpreter = (() => {
+  const environment = {
+    variables: {},
+    functions: {}
+  };
+  
+  // 式の評価
+  const evaluate = (ast) => {
+    if (!ast) return null;
+    
+    // リテラル値
+    if (ast.type === Types.NUMBER || ast.type === Types.BOOLEAN || ast.type === Types.STRING) {
+      return ast.value;
+    }
+    
+    // 変数参照
+    if (ast.type === 'variable') {
+      if (!(ast.name in environment.variables)) {
+        throw new Error(`Undefined variable: ${ast.name}`);
+      }
+      return environment.variables[ast.name];
+    }
+    
+    // 代入
+    if (ast.type === 'assignment') {
+      const value = evaluate(ast.value);
+      environment.variables[ast.variable] = value;
+      return value;
+    }
+    
+    // 演算
+    if (ast.type === 'operation') {
+      const left = evaluate(ast.left);
+      const right = evaluate(ast.right);
       
-      // 型変換のサポートを追加
-      const evalTypeConversion = () => {
-        const value = evaluateNode(node.value, scope);
-        
-        if (node.targetType === 'boolean') {
-            // Boolean型への変換
-            if (typeof value === 'boolean') return value;
-            if (typeof value === 'string') {
-                if (value.toLowerCase() === 'true') return true;
-                if (value.toLowerCase() === 'false') return false;
-                return Boolean(value);
-            }
-            return Boolean(value);
+      // 型チェック
+      if (['+', '-', '*', '/'].includes(ast.operator)) {
+        // 数値演算子の場合、両方のオペランドが数値型であることを確認
+        if (!Fraction.isValidNumber(left) || !Fraction.isValidNumber(right)) {
+          throw new Error(`Type Error: Operator '${ast.operator}' requires Number type (green) operands`);
         }
         
-        if (node.targetType === 'number') {
-            // Number型への変換
-            if (typeof value === 'object' && value.numerator !== undefined) {
-                // Fraction型の場合
-                return value;
+        // 演算の実行
+        switch (ast.operator) {
+          case '+': return left.add(right, false);
+          case '-': return left.subtract(right, false);
+          case '*': return left.multiply(right, false);
+          case '/': 
+            if (right.numerator === 0) {
+              throw new Error('Division by zero');
             }
-            if (typeof value === 'string') {
-                const num = parseFloat(value);
-                if (!isNaN(num)) return Fraction(num, 1, false);
-                return Fraction(0, 1, false);
-            }
-            return Fraction(value ? 1 : 0, 1, false);
+            return left.divide(right, true);
         }
-        
-        if (node.targetType === 'string') {
-            // String型への変換
-            if (typeof value === 'object' && value.numerator !== undefined) {
-                return value.toString();
-            }
-            return String(value);
-        }
-        
-        throw new Error(`Unknown type conversion: ${node.targetType}`);
-      };
+      }
       
-      const table = {
-        number: evalNumber,
-        string: () => node.value,
-        variable: evalVariable,
-        operation: evalOperation,
-        assignment: evalAssignment,
-        function_definition: evalFunctionDefinition,
-        function_call: evalFunctionCall,
-        type_conversion: evalTypeConversion, // 追加
-      };
-      if (table[node.type]) return table[node.type]();
-      throw new Error(`Unknown node type: ${node.type}`);
-    };
+      // 比較演算子
+      if (['>', '>=', '=='].includes(ast.operator)) {
+        // 型の一致を確認
+        const leftIsNumber = Fraction.isValidNumber(left);
+        const rightIsNumber = Fraction.isValidNumber(right);
+        const leftType = leftIsNumber ? Types.NUMBER : typeof left;
+        const rightType = rightIsNumber ? Types.NUMBER : typeof right;
+        
+        if (leftType !== rightType) {
+          throw new Error(`Type Error: Cannot compare values of different types (${leftType} vs ${rightType})`);
+        }
+        
+        // 数値比較
+        if (leftIsNumber && rightIsNumber) {
+          switch (ast.operator) {
+            case '>': return left.greaterThan(right);
+            case '>=': return left.greaterThanOrEqual(right);
+            case '==': return left.equals(right);
+          }
+        }
+        
+        // 文字列またはブール値の比較
+        if (leftType === Types.STRING || leftType === Types.BOOLEAN) {
+          switch (ast.operator) {
+            case '==': return left === right;
+            case '>': return left > right;
+            case '>=': return left >= right;
+          }
+        }
+      }
+      
+      throw new Error(`Unknown operator: ${ast.operator}`);
+    }
+    
+    throw new Error(`Unknown AST node type: ${ast.type}`);
+  };
+  
+  // プログラムの実行
+  const execute = (program) => {
     let result;
-    ast.forEach((ex) => {
-      result = evaluateNode(ex, env);
+    program.forEach(expr => {
+      result = evaluate(expr);
     });
     return result;
   };
-
-const execute = (code) => {
-    try {
-        // コードを実行する前にDOM内の色情報を解析
-        const editor = elements.input;
-        if (editor) {
-            code = '';
-            // DOM構造を走査して色ごとの型変換を適用
-            const processNode = (node) => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    if (node.parentNode && node.parentNode.style && node.parentNode.style.color) {
-                        const color = rgbToColorName(node.parentNode.style.color);
-                        const text = node.textContent.trim();
-                        if (text && color) {
-                            if (color === 'red') {
-                                code += `BOOL(${text}) `;
-                            } else if (color === 'green') {
-                                code += `NUM(${text}) `;
-                            } else if (color === 'blue') {
-                                code += `STR(${text}) `;
-                            } else {
-                                code += text + ' ';
-                            }
-                        } else {
-                            code += node.textContent;
-                        }
-                    } else {
-                        code += node.textContent;
-                    }
-                } else if (node.nodeName === 'BR') {
-                    code += '\n';
-                } else if (node.childNodes) {
-                    Array.from(node.childNodes).forEach(processNode);
-                }
-            };
-            
-            Array.from(editor.childNodes).forEach(processNode);
+  
+  // インタプリタの公開インターフェース
+  return {
+    execute: (editor) => {
+      try {
+        // エディタからトークンを抽出
+        const tokens = tokenize(editor);
+        if (tokens.length === 0) {
+          return "Empty input";
         }
         
-        const tokens = tokenize(code);
+        // 厳格な型チェック - 演算子と数値の色をチェック
+        tokens.forEach(token => {
+          if (['+', '-', '*', '/'].includes(token.value) && token.color !== 'green') {
+            throw new Error(`Type Error: Arithmetic operators must be Number type (green), found ${token.color} for '${token.value}'`);
+          }
+          
+          if (!isNaN(parseFloat(token.value)) && token.color !== 'green') {
+            throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
+          }
+        });
+        
+        // トークンからASTを構築
         const ast = parse(tokens);
-        const result = evaluate(ast);
-        return result.toString ? result.toString() : result;
-    } catch (err) {
-        return `Error: ${err.message}`;
-    }
-};
-
-// RGB値をカラー名に変換するヘルパー関数
-const rgbToColorName = (rgb) => {
-    // RGB形式 "rgb(r, g, b)" または "#rrggbb" を解析
-    let r, g, b;
-    
-    if (rgb.startsWith('rgb')) {
-        const matches = rgb.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
-        if (matches) {
-            r = parseInt(matches[1]);
-            g = parseInt(matches[2]);
-            b = parseInt(matches[3]);
+        
+        // ASTを評価
+        const result = execute(ast);
+        
+        // 結果を文字列に変換して返す
+        if (Fraction.isValidNumber(result)) {
+          return result.toString();
+        } else if (result === null || result === undefined) {
+          return "undefined";
+        } else {
+          return String(result);
         }
-    } else if (rgb.startsWith('#')) {
-        const hex = rgb.substring(1);
-        r = parseInt(hex.substr(0, 2), 16);
-        g = parseInt(hex.substr(2, 2), 16);
-        b = parseInt(hex.substr(4, 2), 16);
-    }
+      } catch (err) {
+        return `Error: ${err.message}`;
+      }
+    },
     
-    // 赤色系 (#FF4B00)
-    if (r > 200 && g < 150 && b < 100) {
-        return 'red';
-    }
-    // 緑色系 (#03AF7A)
-    else if (r < 100 && g > 150 && b < 150) {
-        return 'green';
-    }
-    // 青色系 (#005AFF)
-    else if (r < 100 && g < 150 && b > 200) {
-        return 'blue';
-    }
-    
-    return 'black';
-};
-
-  return { ...state, tokenize, parse, evaluate, execute };
+    // 環境へのアクセスを提供（デバッグ用）
+    getEnvironment: () => ({ ...environment })
+  };
 })();
 
+// 以下は既存のUI関連関数
 const CONFIG = {
     sensitivity: {
         hitRadius: 15,
@@ -621,7 +655,7 @@ const insertColoredText = (text, color) => {
     document.execCommand('insertText', false, text);
 };
 
-// 改行を挿入する専用関数を追加
+// 改行を挿入する専用関数
 const insertNewline = () => {
     const editor = elements.input;
     if (!editor) return;
@@ -957,42 +991,24 @@ const findLastTextNode = (element) => {
     return null;
 };
 
+// 新しいexecuteCode関数 - インタプリタを使用
 const executeCode = () => {
     const editor = elements.input;
-    const code = editor ? editor.textContent || editor.innerText : '';
+    if (!editor) return;
     
-    if (!code.trim()) return;
-    let isSuccess = false;
-    try {
-        const result = interpreter.execute(code);
-        const resultString = result !== undefined ? String(result) : "実行完了";
-        
-        if (typeof resultString === 'string' && resultString.startsWith("エラー:")) {
-            isSuccess = false;
-            if (elements.output) {
-                elements.output.value = resultString;
-            }
-        } else {
-            isSuccess = true;
-            if (elements.output) {
-                elements.output.value = resultString;
-                elements.output.classList.add('executed');
-                setTimeout(() => elements.output.classList.remove('executed'), 300);
-            }
+    // インタプリタを使って実行
+    const result = interpreter.execute(editor);
+    
+    if (elements.output) {
+        elements.output.value = result;
+        if (!result.startsWith('Error:')) {
+            elements.output.classList.add('executed');
+            setTimeout(() => elements.output.classList.remove('executed'), 300);
         }
-        showOutputSection();
-        if (isSuccess && editor) {
-            editor.innerHTML = '';
-        }
-        focusOnInput();
-    } catch (err) {
-        isSuccess = false;
-        if (elements.output) {
-            elements.output.value = `致命的なエラー: ${err.message}`;
-        }
-        showOutputSection();
-        focusOnInput();
     }
+    
+    showOutputSection();
+    focusOnInput();
 };
 
 // 特殊ボタンのイベントリスナー設定 - シンプル化
@@ -1204,7 +1220,7 @@ const setupDotEventListeners = () => {
     }, { passive: false });
 };
 
-// 改行ボタンのイベントリスナーだけを修正
+// 空白/改行ボタンのイベントリスナー修正
 const setupSpecialButtonListeners = () => {
     const deleteBtn = elements.specialRow ? elements.specialRow.querySelector('[data-action="delete"]') : null;
     const spaceBtn = elements.specialRow ? elements.specialRow.querySelector('[data-action="space"]') : null;
@@ -1236,10 +1252,7 @@ const setupSpecialButtonListeners = () => {
             },
             double: () => {
                 // ダブルクリック: 改行挿入
-                const editor = elements.input;
-                if (editor) {
-                    insertNewline();
-                }
+                insertNewline();
             }
         }));
         spaceBtn.addEventListener('pointerdown', e => e.preventDefault());
@@ -1408,14 +1421,12 @@ function initKeypad() {
     zeroBtn.dataset.value = '0';
     elements.specialRow.appendChild(zeroBtn);
 
-    // initKeypad内の改行ボタン作成部分
-	const spaceBtn = document.createElement('div');
-　　spaceBtn.className = 'special-button space';
-　　spaceBtn.textContent = '空白/改行';
-　　spaceBtn.dataset.action = 'space';
-　　spaceBtn.title = 'シングルクリック: 空白挿入\nダブルクリック: 改行';
-　　elements.specialRow.appendChild(spaceBtn);
-
+    // 空白/改行ボタン
+    const spaceBtn = document.createElement('div');
+    spaceBtn.className = 'special-button space';
+    spaceBtn.textContent = '空白/改行';
+    spaceBtn.dataset.action = 'space';
+    spaceBtn.title = 'シングルクリック: 空白挿入\nダブルクリック: 改行';
     elements.specialRow.appendChild(spaceBtn);
 
     if (elements.d2dArea) elements.d2dArea.tabIndex = -1;
@@ -1476,7 +1487,7 @@ const initRichTextEditor = () => {
         });
     });
     
-    // 直接エディタに対するキーイベントを処理
+    // キーボードイベントの処理
     editor.addEventListener('keydown', (e) => {
         // Shift+Enterでプログラム実行
         if (e.key === 'Enter' && e.shiftKey) {
