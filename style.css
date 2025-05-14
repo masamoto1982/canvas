@@ -132,6 +132,7 @@ section:last-child {
     border: 1px solid #ffcdd2;
 }
 
+
 #color-red.active {
     background-color: #ffcdd2;
 }
@@ -321,7 +322,7 @@ section:last-child {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #FF4B00;
+    background-color: #F6AA00; /* 初期化ボタンの色変更 */
     color: white;
     border: none;
     border-radius: 4px;
@@ -332,18 +333,18 @@ section:last-child {
 }
 
 #clear-button:hover {
-    background-color: #D14000;
+    background-color: #D49000; /* ホバー時は少し暗く */
 }
 
 #clear-button:active {
-    background-color: #B03500;
+    background-color: #B37800; /* アクティブ時はさらに暗く */
 }
 
 #execute-button {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #005AFF;
+    background-color: #4DC4FF; /* 実行ボタンの色変更 */
     color: white;
     border: none;
     border-radius: 4px;
@@ -354,11 +355,11 @@ section:last-child {
 }
 
 #execute-button:hover {
-    background-color: #0049CC;
+    background-color: #3AA7E2; /* ホバー時は少し暗く */
 }
 
 #execute-button:active {
-    background-color: #003AA3;
+    background-color: #2A8AC0; /* アクティブ時はさらに暗く */
 }
 
 /* 認識フィードバックのスタイル */

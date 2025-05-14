@@ -102,7 +102,22 @@ const ColorTypes = {
 };
 
 // RGB値を色名に変換する関数
+// RGB値を色名に変換する関数
 const rgbToColorName = (rgb) => {
+  // 特定のカラーコードを直接マッピング
+  const exactColors = {
+    '#FF4B00': 'red',    // 赤色 (Boolean型)
+    '#03AF7A': 'green',  // 緑色 (Number型)
+    '#005AFF': 'blue',   // 青色 (String型)
+    // 必要に応じて他の色も追加
+  };
+  
+  // 正確な16進カラーコードの場合は直接マッピング
+  if (exactColors[rgb]) {
+    return exactColors[rgb];
+  }
+  
+  // RGB値の解析
   let r, g, b;
   
   if (rgb.startsWith('rgb')) {
@@ -119,16 +134,17 @@ const rgbToColorName = (rgb) => {
     b = parseInt(hex.substr(4, 2), 16);
   }
   
-  // 赤色系 (#FF4B00)
+  // 色覚障碍者に配慮した色の範囲判定
+  // 赤系 (#FF4B00)
   if (r > 200 && g < 150 && b < 100) {
     return 'red';
   }
-  // 緑色系 (#03AF7A)
-  else if (r < 100 && g > 150 && b < 150) {
+  // 緑系 (#03AF7A)
+  else if (r < 100 && g > 100 && b < 150) {
     return 'green';
   }
-  // 青色系 (#005AFF)
-  else if (r < 100 && g < 150 && b > 200) {
+  // 青系 (#005AFF)
+  else if (r < 100 && g < 150 && b > 150) {
     return 'blue';
   }
   
@@ -638,6 +654,14 @@ const insertColoredText = (text, color) => {
     const editor = elements.input;
     if (!editor) return;
     
+    // カラーコードのマッピング
+    const colorCodes = {
+      'red': '#FF4B00',
+      'green': '#03AF7A',
+      'blue': '#005AFF',
+      'black': '#000000'
+    };
+    
     // エディタにフォーカスを当てる
     editor.focus();
     
@@ -647,9 +671,9 @@ const insertColoredText = (text, color) => {
         return;
     }
     
-    // 各文字色に応じた処理
+    // 正確なカラーコードを使用
     document.execCommand('styleWithCSS', false, true);
-    document.execCommand('foreColor', false, color);
+    document.execCommand('foreColor', false, colorCodes[color] || color);
     
     // テキストを挿入
     document.execCommand('insertText', false, text);
@@ -1001,9 +1025,15 @@ const executeCode = () => {
     
     if (elements.output) {
         elements.output.value = result;
+        
+        // エラーが発生しなかった場合
         if (!result.startsWith('Error:')) {
+            // 出力に成功の視覚的フィードバックを適用
             elements.output.classList.add('executed');
             setTimeout(() => elements.output.classList.remove('executed'), 300);
+            
+            // 実行成功時にエディタを初期化
+            editor.innerHTML = '';
         }
     }
     
@@ -1466,6 +1496,14 @@ const initRichTextEditor = () => {
     
     let currentColor = 'black';
     
+    // 色とカラーコードのマッピング
+    const colorCodes = {
+      'red': '#FF4B00',
+      'green': '#03AF7A',
+      'blue': '#005AFF',
+      'black': '#000000'
+    };
+    
     const colorButtons = document.querySelectorAll('.color-btn');
     
     editor.style.caretColor = currentColor;
@@ -1477,7 +1515,7 @@ const initRichTextEditor = () => {
             btn.classList.toggle('active', btn.dataset.color === color);
         });
         
-        editor.style.caretColor = color;
+        editor.style.caretColor = colorCodes[color] || color;
         editor.focus();
     };
     
