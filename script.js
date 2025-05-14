@@ -98,7 +98,15 @@ const ColorTypes = {
   'green': Types.NUMBER,
   'red': Types.BOOLEAN,
   'blue': Types.STRING,
-  'black': Types.SYMBOL
+  'cyan': Types.SYMBOL
+};
+
+// 色とカラーコードのマッピング - グローバル変数として定義
+const colorCodes = {
+    'red': '#FF4B00',
+    'green': '#03AF7A', 
+    'blue': '#005AFF',
+    'cyan': '#4DC4FF'
 };
 
 // RGB値を色名に変換する関数
@@ -109,7 +117,7 @@ const rgbToColorName = (rgb) => {
     '#FF4B00': 'red',    // 赤色 (Boolean型)
     '#03AF7A': 'green',  // 緑色 (Number型)
     '#005AFF': 'blue',   // 青色 (String型)
-    // 必要に応じて他の色も追加
+    '#4DC4FF': 'cyan',   // シアン (Symbol型)
   };
   
   // 正確な16進カラーコードの場合は直接マッピング
@@ -147,8 +155,12 @@ const rgbToColorName = (rgb) => {
   else if (r < 100 && g < 150 && b > 150) {
     return 'blue';
   }
+  // シアン系 (#4DC4FF)
+  else if (r < 150 && g > 150 && b > 200) {
+    return 'cyan';
+  }
   
-  return 'black';
+  return 'cyan'; // デフォルトをcyanに変更
 };
 
 // トークナイザー - エディタのDOM内容から色情報付きトークンを抽出
@@ -659,7 +671,7 @@ const insertColoredText = (text, color) => {
       'red': '#FF4B00',
       'green': '#03AF7A',
       'blue': '#005AFF',
-      'black': '#000000'
+      'cyan': '#4DC4FF'
     };
     
     // エディタにフォーカスを当てる
@@ -673,7 +685,7 @@ const insertColoredText = (text, color) => {
     
     // 正確なカラーコードを使用
     document.execCommand('styleWithCSS', false, true);
-    document.execCommand('foreColor', false, colorCodes[color] || color);
+    document.execCommand('foreColor', false, colorCodes[color] || colorCodes['cyan']);
     
     // テキストを挿入
     document.execCommand('insertText', false, text);
@@ -725,18 +737,9 @@ const insertAtCursor = (text) => {
     const editor = elements.input;
     if (!editor) return;
     
-    // 空白文字の場合は色を黒に変更
-    if (text === ' ') {
-        const currentColorBtn = document.querySelector('.color-btn.active');
-        if (currentColorBtn) {
-            currentColorBtn.classList.remove('active');
-        }
-        editor.style.caretColor = 'black';
-        insertColoredText(text, 'black');
-    } else {
-        const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'black';
-        insertColoredText(text, currentActiveColor);
-    }
+    // 現在の文字色を維持したまま挿入（空白文字の特別処理を削除）
+    const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'cyan';
+    insertColoredText(text, currentActiveColor);
     
     if (isMobileDevice()) showTextSection();
     focusOnInput();
@@ -786,38 +789,114 @@ const resetDrawState = (keepActive = false) => {
     drawState.strokeTimer = null;
 };
 
+// 既存の recognizeLetter 関数がある場所の近くに追加します
+
+// 既存関数
 const recognizeLetter = (totalValue) => {
     if (letterPatterns.hasOwnProperty(totalValue)) {
         console.log(`認識成功 (完全一致): 値=${totalValue}, 文字=${letterPatterns[totalValue]}`);
         return letterPatterns[totalValue];
     }
 
-    if (CONFIG.recognition.tolerance > 0 && totalValue > 0) {
-        let bestMatch = null;
+    // 残りの既存コード...
+    // ...
 
-        for (const patternValueStr in letterPatterns) {
-            const patternValue = parseInt(patternValueStr, 10);
-            const diff = totalValue ^ patternValue;
-
-            const isPowerOfTwo = (diff > 0) && ((diff & (diff - 1)) === 0);
-
-            if (isPowerOfTwo) {
-                if (CONFIG.recognition.tolerance === 1) {
-                    console.log(`認識成功 (寛容性): 入力=${totalValue}, パターン=${patternValue}, 文字=${letterPatterns[patternValue]}, 差分=${diff}`);
-                    bestMatch = letterPatterns[patternValue];
-                    break;
-                }
-            }
-        }
-        if (bestMatch) {
-            return bestMatch;
-        }
-    }
-
-    console.log(`認識失敗: 値=${totalValue}`);
     return null;
 };
 
+// 新しい拡張関数を直後に追加
+const recognizeLetterWithErrorCorrection = (totalValue) => {
+    // 直接パターンマッチ
+    if (letterPatterns[totalValue]) {
+        console.log(`完全一致: ${totalValue} → ${letterPatterns[totalValue]}`);
+        return letterPatterns[totalValue];
+    }
+    
+    if (complexPatterns && complexPatterns[totalValue]) {
+        console.log(`複合パターン一致: ${totalValue} → ${complexPatterns[totalValue]}`);
+        return complexPatterns[totalValue];
+    }
+    
+    // 誤り訂正パート
+    // 1. まず素因数分解する
+    const factors = getPrimeFactors(totalValue);
+    
+    // 2. 主要な素因数のみを見る（誤検出の除外）
+    const validFactors = factors.filter(f => dotValues.includes(f));
+    
+    // 3. もし有効な素因数が見つかったら、それらの積を計算
+    if (validFactors.length > 0) {
+        const correctedValue = validFactors.reduce((a, b) => a * b, 1);
+        
+        // 4. 修正された値で再度パターンマッチを試みる
+        if (letterPatterns[correctedValue]) {
+            console.log(`誤り訂正成功: ${totalValue} → ${correctedValue} → ${letterPatterns[correctedValue]}`);
+            return letterPatterns[correctedValue];
+        }
+    }
+    
+    // 5. 最も可能性の高い文字を推測（素因数の部分集合を試す）
+    const candidatePatterns = findSubsetProductMatches(validFactors);
+    if (candidatePatterns.length > 0) {
+        console.log(`部分一致推測: ${totalValue} → ${candidatePatterns[0].letter}`);
+        return candidatePatterns[0].letter;
+    }
+    
+    return null;
+};
+
+// 素因数分解
+const getPrimeFactors = (num) => {
+    const factors = [];
+    let divisor = 2;
+    
+    while (num > 1) {
+        while (num % divisor === 0) {
+            factors.push(divisor);
+            num /= divisor;
+        }
+        divisor++;
+        
+        // 効率化のため、sqrt(num)までチェックすれば十分
+        if (divisor * divisor > num) {
+            if (num > 1) factors.push(num);
+            break;
+        }
+    }
+    
+    return factors;
+};
+
+// 素因数の部分集合による可能なパターンを見つける
+const findSubsetProductMatches = (factors) => {
+    const candidates = [];
+    const maxSubsets = Math.min(10, Math.pow(2, factors.length)); // 制限を設ける
+    
+    // 部分集合を生成（全てを試すと指数関数的に増えるため、ヒューリスティックを使用）
+    for (let i = 1; i < maxSubsets; i++) {
+        const subset = [];
+        for (let j = 0; j < factors.length; j++) {
+            if (i & (1 << j)) {
+                subset.push(factors[j]);
+            }
+        }
+        
+        // 部分集合の積を計算
+        const product = subset.reduce((a, b) => a * b, 1);
+        
+        // この積に対応する文字があれば候補に追加
+        if (letterPatterns[product]) {
+            candidates.push({
+                letter: letterPatterns[product],
+                product: product,
+                distance: Math.abs(product - factors.reduce((a, b) => a * b, 1))
+            });
+        }
+    }
+    
+    // 元の値に最も近い候補をソート
+    return candidates.sort((a, b) => a.distance - b.distance);
+};
 const showRecognitionFeedback = (character) => {
     if (!elements.d2dArea || !character) return;
     const fb = document.createElement('div');
@@ -836,7 +915,8 @@ const endDrawing = () => {
 
         drawState.strokeTimer = setTimeout(() => {
             if (drawState.detectedDots.size > 0 && drawState.totalValue > 0) {
-                const rec = recognizeLetter(drawState.totalValue);
+                // ここを修正: 誤り訂正付きの認識関数を使用
+                const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
                 if (rec) {
                     insertAtCursor(rec);
                     showRecognitionFeedback(rec);
@@ -1265,28 +1345,23 @@ const setupSpecialButtonListeners = () => {
     }
 
     if (spaceBtn) {
-        // 空白/改行ボタンの処理
-        spaceBtn.addEventListener('pointerup', e => handleSpecialButtonClick(e, 'space', {
-            single: () => {
-                // シングルクリック: 空白挿入（黒色に変更）
-                const editor = elements.input;
-                if (editor) {
-                    const currentActiveColorBtn = document.querySelector('.color-btn.active');
-                    if (currentActiveColorBtn) {
-                        currentActiveColorBtn.classList.remove('active');
-                    }
-                    // 黒色に切り替え
-                    editor.style.caretColor = 'black';
-                    insertAtCursor(' ');
-                }
-            },
-            double: () => {
-                // ダブルクリック: 改行挿入
-                insertNewline();
+    // 空白/改行ボタンの処理
+    spaceBtn.addEventListener('pointerup', e => handleSpecialButtonClick(e, 'space', {
+        single: () => {
+            // シングルクリック: 空白挿入（文字色を維持）
+            const editor = elements.input;
+            if (editor) {
+                // 現在の文字色を維持したまま空白を挿入
+                insertAtCursor(' ');
             }
-        }));
-        spaceBtn.addEventListener('pointerdown', e => e.preventDefault());
-    }
+        },
+        double: () => {
+            // ダブルクリック: 改行挿入
+            insertNewline();
+        }
+    }));
+    spaceBtn.addEventListener('pointerdown', e => e.preventDefault());
+}
 };
 
 const setupExecuteButtonListener = () => {
@@ -1365,21 +1440,46 @@ const updateConfigStyles = () => {
     document.head.appendChild(s);
 };
 
-const dotValues = [
-    1, 2, 4, 8, 16, 32, 64, 128, 256, 512,
-    1024, 2048, 4096, 8192, 16384, 32768,
-    65536, 131072, 262144, 524288, 1048576,
-    2097152, 4194304, 8388608, 16777216
-];
+// ドット値の定義（素数）
+const dotValues = [2, 3, 5, 7, 11, 13, 17, 19, 23];
 
+// 素数の積に対応する文字パターン
 const letterPatterns = {
-    17836036: 'A', 28611899: 'B', 32539711: 'C', 1224985: 'D',
-    32567296: 'E', 1113151: 'F', 33092671: 'G', 18415153: 'H',
-    32641183: 'I', 7475359: 'J', 17990833: 'K', 32539681: 'L',
-    18405233: 'M', 18667121: 'N', 33080895: 'O', 1113663: 'P',
-    33347135: 'Q', 18153023: 'R', 33061951: 'S', 4329631:  'T',
-    33080881: 'U', 4204561: 'V', 18732593: 'W', 18157905: 'X',
-    4329809:  'Y', 32575775: 'Z'
+    6: 'A',        // 2×3
+    10: 'B',       // 2×5
+    14: 'C',       // 2×7
+    22: 'D',       // 2×11
+    26: 'E',       // 2×13
+    34: 'F',       // 2×17
+    38: 'G',       // 2×19
+    46: 'H',       // 2×23
+    15: 'I',       // 3×5
+    21: 'J',       // 3×7
+    33: 'K',       // 3×11
+    39: 'L',       // 3×13
+    51: 'M',       // 3×17
+    57: 'N',       // 3×19
+    69: 'O',       // 3×23
+    35: 'P',       // 5×7
+    55: 'Q',       // 5×11
+    65: 'R',       // 5×13
+    85: 'S',       // 5×17
+    95: 'T',       // 5×19
+    115: 'U',      // 5×23
+    77: 'V',       // 7×11
+    91: 'W',       // 7×13
+    119: 'X',      // 7×17
+    133: 'Y',      // 7×19
+    161: 'Z',      // 7×23
+    // 他の記号や数字のパターンもここに追加可能
+};
+
+// 3つ以上のドットを使ったパターンも追加可能
+const complexPatterns = {
+    30: '(',       // 2×3×5
+    42: ')',       // 2×3×7
+    66: '+',       // 2×3×11
+    // 必要に応じて追加...
 };
 
 const numericPositions = {
@@ -1404,38 +1504,40 @@ function initKeypad() {
     elements.dotGrid.innerHTML = '';
     elements.specialRow.innerHTML = '';
 
+    // 3×3のグリッドレイアウト
+    CONFIG.layout.gridRows = 3;
+    CONFIG.layout.gridCols = 3;
+
+    // 素数値のドット配置
+    const primeValues = [2, 3, 5, 7, 11, 13, 17, 19, 23];
+    
     for (let r = 0; r < CONFIG.layout.gridRows; r++) {
         const row = document.createElement('div');
         row.className = 'dot-row';
+        
         for (let c = 0; c < CONFIG.layout.gridCols; c++) {
             const idx = r * CONFIG.layout.gridCols + c;
-            if (idx >= dotValues.length) continue;
+            if (idx >= primeValues.length) continue;
 
-            const value = dotValues[idx];
+            const value = primeValues[idx];
             const dot = document.createElement('div');
             dot.className = 'dot';
             dot.dataset.index = idx;
             dot.dataset.value = value;
 
-            const digit = numericPositions[idx];
-            const word = dotWordMapping[value];
-
-            if (digit) {
-                dot.classList.add('numeric');
-                dot.textContent = digit;
-                dot.dataset.digit = digit;
-            } else if (word) {
-                dot.classList.add('word-dot');
-                dot.textContent = word;
-                dot.dataset.word = word;
-            } else {
-                dot.classList.add('placeholder-dot');
-            }
+            // ドットの表示をカスタマイズ
+            const position = idx + 1; // 1-9の位置番号
+            dot.textContent = position.toString();
+            dot.classList.add('numeric');
+            dot.dataset.digit = position.toString();
+            
             row.appendChild(dot);
         }
+        
         elements.dotGrid.appendChild(row);
     }
 
+    // 特殊ボタンの配置
     const deleteBtn = document.createElement('div');
     deleteBtn.className = 'special-button delete';
     deleteBtn.textContent = '削除';
@@ -1448,7 +1550,7 @@ function initKeypad() {
     zeroBtn.textContent = '0';
     zeroBtn.dataset.digit = '0';
     zeroBtn.dataset.index = 'special_0';
-    zeroBtn.dataset.value = '0';
+    zeroBtn.dataset.value = '1'; // 素数ではないが、乗算に影響しない値として1を設定
     elements.specialRow.appendChild(zeroBtn);
 
     // 空白/改行ボタン
@@ -1494,19 +1596,18 @@ const initRichTextEditor = () => {
     
     if (!editor) return;
     
-    let currentColor = 'black';
-    
-    // 色とカラーコードのマッピング
-    const colorCodes = {
-      'red': '#FF4B00',
-      'green': '#03AF7A',
-      'blue': '#005AFF',
-      'black': '#000000'
-    };
+    // デフォルトの色をcyanに変更
+    let currentColor = 'cyan';
     
     const colorButtons = document.querySelectorAll('.color-btn');
     
-    editor.style.caretColor = currentColor;
+    editor.style.caretColor = colorCodes[currentColor];
+    
+    // 初期状態ではcyanボタンをアクティブに
+    const cyanBtn = document.querySelector('#color-cyan');
+    if (cyanBtn) {
+        cyanBtn.classList.add('active');
+    }
     
     const applyColor = (color) => {
         currentColor = color;
@@ -1525,7 +1626,7 @@ const initRichTextEditor = () => {
         });
     });
     
-    // キーボードイベントの処理
+    // Ctrl+キーの組み合わせでの色変更に'c'を追加
     editor.addEventListener('keydown', (e) => {
         // Shift+Enterでプログラム実行
         if (e.key === 'Enter' && e.shiftKey) {
@@ -1555,20 +1656,25 @@ const initRichTextEditor = () => {
                 e.preventDefault();
                 applyColor('green');
                 return;
+            } else if (e.key === 'c' || e.key === 'C') {
+                e.preventDefault();
+                applyColor('cyan');
+                return;
             }
             // その他のCtrl+キーの場合は通常処理を継続
             return;
         }
         
-        // スペースキーが押されたら黒色に戻す
+        // スペースキーが押されても文字色は変更しない（この部分を削除）
+        /*
         if (e.key === ' ' || e.key === 'Spacebar') {
             currentColor = 'black';
             editor.style.caretColor = 'black';
             colorButtons.forEach(btn => {
                 btn.classList.remove('active');
             });
-            // スペースは文字として挿入する処理を継続
         }
+        */
         
         // 通常のキー入力
         if (e.key.length === 1) {  // 単一文字の入力
