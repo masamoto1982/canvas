@@ -157,6 +157,16 @@ section:last-child {
     background-color: #bbdefb;
 }
 
+#color-cyan, #color-cyan.active {
+    background-color: #f0faff;
+    color: #4DC4FF;
+    border: 1px solid #b3e5fc;
+}
+
+#color-cyan.active {
+    background-color: #b3e5fc;
+}
+
 #upper-half {
     flex: 1;
     min-height: 120px;
@@ -322,7 +332,7 @@ section:last-child {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #F6AA00; /* 初期化ボタンの色変更 */
+    background-color: #cccccc; /* 初期化ボタンの色変更 */
     color: white;
     border: none;
     border-radius: 4px;
@@ -344,7 +354,7 @@ section:last-child {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #4DC4FF; /* 実行ボタンの色変更 */
+    background-color: #cccccc; /* 実行ボタンの色変更 */
     color: white;
     border: none;
     border-radius: 4px;
