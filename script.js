@@ -1728,12 +1728,36 @@ function initKeypad() {
 const initResponsiveLayout = () => {
  const checkLayout = () => {
    resizeCanvas();
-   if (isMobileDevice()) {
-     if (elements.textSection && elements.outputSection) {
-       elements.outputSection.classList.add('hide');
-       elements.textSection.classList.remove('hide');
-     }
-   } else {
+   // スマートフォンでのキーボード表示を最終的に防止
+if (isMobileDevice()) {
+  // d2d-input領域のフォーカス処理を完全に無効化
+  const preventKeyboard = () => {
+    if (elements.d2dArea) {
+      elements.d2dArea.addEventListener('touchstart', (e) => {
+        // アクティブな要素からフォーカスを外す
+        if (document.activeElement && document.activeElement !== elements.input) {
+          document.activeElement.blur();
+        }
+        // キーボード表示を防止
+        e.preventDefault();
+      }, { passive: false, capture: true });
+      
+      // 以下のイベントに対しても同様の処理
+      ['touchstart', 'mousedown', 'pointerdown', 'MSPointerDown'].forEach(eventType => {
+        elements.d2dArea.addEventListener(eventType, (e) => {
+          if (e.target !== elements.input) {
+            e.preventDefault();
+            if (document.activeElement) document.activeElement.blur();
+          }
+        }, { passive: false, capture: true });
+      });
+    }
+  };
+  
+  // DOMContentLoaded時とウィンドウロード時の両方で実行
+  window.addEventListener('DOMContentLoaded', preventKeyboard);
+  window.addEventListener('load', preventKeyboard);
+} else {
      if (elements.outputSection) elements.outputSection.classList.remove('hide');
      if (elements.textSection) elements.textSection.classList.remove('hide');
    }
