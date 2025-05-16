@@ -1428,26 +1428,61 @@ const handlePointerUp = (e) => {
 };
 
 const setupMultiTouchSupport = () => {
- if (isMobileDevice() && elements.d2dArea) {
-   elements.d2dArea.addEventListener('touchstart', (e) => e.preventDefault(), {
-     passive: false
-   });
-   elements.d2dArea.addEventListener('touchmove', (e) => e.preventDefault(), {
-     passive: false
-   });
- }
+  if (isMobileDevice() && elements.d2dArea) {
+    // タッチイベントをキャンセル（キーボード表示を防止）
+    elements.d2dArea.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      // フォーカスが設定されないようにする
+      if (document.activeElement) {
+        document.activeElement.blur();
+      }
+    }, {
+      passive: false
+    });
+    
+    elements.d2dArea.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, {
+      passive: false
+    });
+    
+    // フォーカスイベントをキャンセル
+    elements.d2dArea.addEventListener('focusin', (e) => {
+      e.preventDefault();
+      elements.d2dArea.blur();
+    }, {
+      passive: false
+    });
+  }
 };
 
+
 const setupDotEventListeners = () => {
- if (!elements.d2dArea) return;
- console.log("Setting up dot event listeners for:", elements.d2dArea);
- elements.d2dArea.addEventListener('pointerdown', (e) => {
-   if (e.target.classList.contains('dot')) {
-     handlePointerDown(e, e.target);
-   }
- }, {
-   passive: false
- });
+  if (!elements.d2dArea) return;
+  console.log("Setting up dot event listeners for:", elements.d2dArea);
+  
+  // フォーカスイベントを防止
+  elements.d2dArea.addEventListener('focus', (e) => {
+    // d2d-inputがフォーカスを受け取ったら、即座にblurさせる
+    // これによりキーボードが表示されない
+    elements.d2dArea.blur();
+    e.preventDefault();
+  }, false);
+  
+  // フォーカス可能な属性を削除
+  elements.d2dArea.setAttribute('tabindex', '-1');
+  
+  // ポインタダウンイベント処理
+  elements.d2dArea.addEventListener('pointerdown', (e) => {
+    // キーボードが表示されないようにする
+    e.preventDefault();
+    
+    if (e.target.classList.contains('dot')) {
+      handlePointerDown(e, e.target);
+    }
+  }, {
+    passive: false
+  });
 };
 
 // 空白/改行ボタンのイベントリスナー修正
