@@ -1,3 +1,4 @@
+// 新しいscript.jsの内容 - 完全に置き換えてください
 // --- 分数計算をサポートするクラス ---
 const Fraction = (() => {
   const gcd = (a, b) => {
@@ -249,10 +250,6 @@ const parse = (tokens) => {
 
     // 演算子（前置記法）
     if (['+', '-', '*', '/', '>', '>=', '=='].includes(token.value)) {
-      if (token.color !== 'green' && token.type !== Types.SYMBOL) {
-        throw new Error(`Type Error: Operator '${token.value}' must be a Number type (green) or Symbol type (black), found ${token.color}`);
-      }
-
       const operator = consume().value;
       const left = parseExpression();
       const right = parseExpression();
@@ -275,7 +272,7 @@ const parse = (tokens) => {
 
       const variableToken = peek();
       if (!variableToken || variableToken.color !== 'cyan' || !/^[A-Z][A-Z0-9_]*$/.test(variableToken.value)) {
-        throw new Error(`Syntax Error: Expected variable name after '=', found ${variableToken ? variableToken.value : 'end of input'}`);
+        throw new Error(`Syntax Error: Expected variable name (uppercase) after '=', found ${variableToken ? variableToken.value : 'end of input'}`);
       }
 
       const variable = consume().value;
@@ -366,24 +363,16 @@ const parse = (tokens) => {
   return parseProgram();
 };
 
-// グローバル状態の定義
-const state = {
-  variables: {},
-  functions: {}
-};
-
-// インタプリタ - ASTを評価
+// インタプリタ - 一つだけの定義
 const interpreter = (() => {
+  // 環境変数の初期化
   const environment = {
     variables: {},
     functions: {}
   };
 
   // 式の評価
-  const evaluate = (ast, env = {
-    variables: state.variables,
-    functions: state.functions
-  }) => {
+  const evaluate = (ast, env = environment) => {
     if (!ast) return null;
 
     // リテラル値
@@ -430,7 +419,7 @@ const interpreter = (() => {
             if (right.numerator === 0) {
               throw new Error('Division by zero');
             }
-            return left.divide(right, true);
+            return left.divide(right, false);
         }
       }
 
@@ -486,6 +475,12 @@ const interpreter = (() => {
     return result;
   };
 
+  // 環境変数をリセット
+  const resetEnvironment = () => {
+    environment.variables = {};
+    environment.functions = {};
+  };
+
   // インタプリタの公開インターフェース
   return {
     execute: (editor) => {
@@ -495,15 +490,28 @@ const interpreter = (() => {
         if (tokens.length === 0) {
           return "Empty input";
         }
-
-        // 厳格な型チェック - 演算子と数値の色をチェック
+        
+        // トークンの色が適切かチェック
         tokens.forEach(token => {
-          if (['+', '-', '*', '/'].includes(token.value) && token.color !== 'green') {
-            throw new Error(`Type Error: Arithmetic operators must be Number type (green), found ${token.color} for '${token.value}'`);
+          // 算術演算子は緑色（number型）かシアン色（symbol型）でなければならない
+          if (['+', '-', '*', '/'].includes(token.value) && 
+              token.color !== 'green' && token.color !== 'cyan') {
+            throw new Error(`Type Error: Arithmetic operators must be Number type (green) or Symbol type (cyan), found ${token.color} for '${token.value}'`);
           }
-
+          
+          // 数値リテラルは緑色（number型）でなければならない
           if (!isNaN(parseFloat(token.value)) && token.color !== 'green') {
             throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
+          }
+          
+          // 変数名は大文字で始まり、シアン色（symbol型）でなければならない
+          if (/^[A-Z][A-Z0-9_]*$/.test(token.value) && token.color !== 'cyan') {
+            throw new Error(`Type Error: Variable names must be Symbol type (cyan), found ${token.color} for '${token.value}'`);
+          }
+          
+          // 代入演算子（=）は緑色（number型）かシアン色（symbol型）でなければならない
+          if (token.value === '=' && token.color !== 'green' && token.color !== 'cyan') {
+            throw new Error(`Type Error: Assignment operator '=' must be Number type (green) or Symbol type (cyan), found ${token.color}`);
           }
         });
 
@@ -525,6 +533,8 @@ const interpreter = (() => {
         return `Error: ${err.message}`;
       }
     },
+
+    reset: resetEnvironment,
 
     // 環境へのアクセスを提供（デバッグ用）
     getEnvironment: () => ({
@@ -2018,11 +2028,11 @@ const initRichTextEditor = () => {
       // d2d-inputセクションでの操作に戻る（オプション）
       // モバイルではキーボードが表示されないようにする
       if (isMobileDevice()) {
-    // モバイルでは初期ロード時にキーボードを表示しないフォーカス
-    focusWithoutKeyboard(editor);
-  } else {
-    focusOnInput(); // デスクトップでは通常のフォーカス
-  }
+        // モバイルでは初期ロード時にキーボードを表示しないフォーカス
+        focusWithoutKeyboard(editor);
+      } else {
+        focusOnInput(); // デスクトップでは通常のフォーカス
+      }
     });
   });
 
