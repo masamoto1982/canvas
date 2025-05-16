@@ -74,6 +74,11 @@ section:last-child {
     transition: background-color 0.3s;
     overflow-y: auto;
     font-family: monospace;
+	 -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-tap-highlight-color: auto;
 }
 
 #output.executed {
@@ -176,6 +181,12 @@ section:last-child {
     position: relative;
     user-select: none;
     margin-top: 5px;
+	-webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 #dot-grid {
