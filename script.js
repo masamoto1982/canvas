@@ -1762,16 +1762,124 @@ const initRichTextEditor = () => {
    cyanBtn.classList.add('active');
  }
 
- const applyColor = (color) => {
-   currentColor = color;
+ // 1. 色ボタンのクリックハンドラーを修正（フォーカスを設定しない）
+const applyColor = (color) => {
+  currentColor = color;
 
-   colorButtons.forEach(btn => {
-     btn.classList.toggle('active', btn.dataset.color === color);
-   });
+  colorButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.color === color);
+  });
 
-   editor.style.caretColor = colorCodes[color] || color;
-   editor.focus();
- };
+  // カーソルの色のみ変更し、フォーカスは設定しない
+  if (editor) {
+    editor.style.caretColor = colorCodes[color] || color;
+    
+    // すでにフォーカスがあるなら、選択範囲の色を更新
+    if (document.activeElement === editor) {
+      // 選択範囲があれば、その色を更新
+      document.execCommand('styleWithCSS', false, true);
+      document.execCommand('foreColor', false, colorCodes[color] || colorCodes['cyan']);
+    }
+  }
+};
+
+// 2. txt-input へのイベントハンドラーを追加/修正
+const initRichTextEditor = () => {
+  const editor = document.getElementById('txt-input');
+
+  if (!editor) return;
+
+  // デフォルトの色をcyanに変更
+  let currentColor = 'cyan';
+
+  const colorButtons = document.querySelectorAll('.color-btn');
+
+  editor.style.caretColor = colorCodes[currentColor];
+
+  // 初期状態ではcyanボタンをアクティブに
+  const cyanBtn = document.querySelector('#color-cyan');
+  if (cyanBtn) {
+    cyanBtn.classList.add('active');
+  }
+
+  // Android のネイティブ入力をサポートするための処理
+  editor.addEventListener('input', (e) => {
+    // 入力イベントが発生したときに、現在の文字色を反映
+    // ただし、これは単純な解決策ではなく、選択範囲内のテキストに対しては
+    // 直接適用できない場合がある
+    
+    // 現在アクティブな色を取得
+    const activeColor = getCurrentColor();
+    
+    // 現在のテキストを保存
+    const text = editor.innerHTML;
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    
+    // カーソル位置を保存
+    const cursorPosition = getCursorPosition(editor);
+    
+    // 非効率ですが、全体を選択して色を適用
+    // これは編集モードでの対応策です
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, colorCodes[activeColor] || colorCodes['cyan']);
+    
+    // カーソル位置を復元（必要に応じて）
+    setCursorPosition(editor, cursorPosition);
+  });
+
+  // 残りのコードは変更なし...
+};
+
+// モバイルでのフォーカス管理のための追加関数
+const focusWithoutKeyboard = (element) => {
+  if (!element) return;
+  
+  // 現在のスクロール位置を保存
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  
+  // 一時的にreadonly属性を追加（キーボード表示を防ぐ）
+  const originalReadOnly = element.getAttribute('readonly');
+  const originalContentEditable = element.getAttribute('contenteditable');
+  
+  if (element.tagName.toLowerCase() === 'div' && originalContentEditable === 'true') {
+    element.setAttribute('contenteditable', 'false');
+  } else {
+    element.setAttribute('readonly', 'readonly');
+  }
+  
+  // フォーカスを設定
+  element.focus();
+  
+  // 属性を元に戻す
+  if (element.tagName.toLowerCase() === 'div' && originalContentEditable === 'true') {
+    element.setAttribute('contenteditable', 'true');
+  } else {
+    if (originalReadOnly) {
+      element.setAttribute('readonly', originalReadOnly);
+    } else {
+      element.removeAttribute('readonly');
+    }
+  }
+  
+  // スクロール位置を復元
+  window.scrollTo(scrollX, scrollY);
+};
+
+// 文字色ボタンクリック時のイベントハンドラー
+colorButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    // 色を適用
+    applyColor(btn.dataset.color);
+    
+    // d2d-inputセクションでの操作に戻る（オプション）
+    if (isMobileDevice() && elements.d2dArea) {
+      // d2d-inputへの視覚的なフォーカス（キーボードは表示しない）
+      focusWithoutKeyboard(elements.d2dArea);
+    }
+  });
+});
 
  colorButtons.forEach(btn => {
    btn.addEventListener('click', () => {
