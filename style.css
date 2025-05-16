@@ -202,7 +202,7 @@ section:last-child {
     height: 45px;
     border-radius: 50%;
     border: 1px solid #cccccc;
-    background-color: #f8f8f8;
+    background-color: #cccccc;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -343,11 +343,11 @@ section:last-child {
 }
 
 #clear-button:hover {
-    background-color: #D49000; /* ホバー時は少し暗く */
+    background-color: ; /* ホバー時は少し暗く */
 }
 
 #clear-button:active {
-    background-color: #B37800; /* アクティブ時はさらに暗く */
+    background-color: ; /* アクティブ時はさらに暗く */
 }
 
 #execute-button {
@@ -365,11 +365,11 @@ section:last-child {
 }
 
 #execute-button:hover {
-    background-color: #3AA7E2; /* ホバー時は少し暗く */
+    background-color: ; /* ホバー時は少し暗く */
 }
 
 #execute-button:active {
-    background-color: #2A8AC0; /* アクティブ時はさらに暗く */
+    background-color: ; /* アクティブ時はさらに暗く */
 }
 
 /* 認識フィードバックのスタイル */
