@@ -656,15 +656,38 @@ const focusWithoutKeyboard = (element) => {
 };
 
 const focusOnInput = () => {
-  if (!elements.input) return;
+  const editor = elements.input;
+  if (!editor) return;
   
-  if (isMobileDevice()) {
-    // モバイルでは特別な処理でキーボードが表示されないようにする
-    focusWithoutKeyboard(elements.input);
-  } else {
-    // デスクトップでは通常通りフォーカス
-    elements.input.focus();
-  }
+  // 通常のフォーカス - キーボードを表示する
+  // これはエディタを直接タップした場合に使われる
+  editor.focus();
+};
+
+const setupEditorEvents = () => {
+  const editor = elements.input;
+  if (!editor) return;
+  
+  // エディタをタップしたときにキーボードを表示
+  editor.addEventListener('touchstart', (e) => {
+    // タッチイベントの伝播は継続
+    // ここでpreventDefaultを呼ばないことがキー
+  });
+  
+  editor.addEventListener('focus', () => {
+    // エディタがフォーカスされたときに何もしない
+    // これによりnative focusを許可しキーボードが表示される
+  });
+};
+
+// 修正3: 明示的なエディタフォーカス用の関数を追加
+// この関数はエディタを直接タップしたときに呼び出す
+const focusEditorWithKeyboard = () => {
+  const editor = elements.input;
+  if (!editor) return;
+  
+  // キーボードを表示するための直接フォーカス
+  editor.focus();
 };
 
 // ドット間に線を描画する関数
@@ -816,10 +839,11 @@ const insertAtCursor = (text) => {
   const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'cyan';
   insertColoredText(text, currentActiveColor);
 
-  if (isMobileDevice()) showTextSection();
-  
-  // モバイルデバイスではキーボードを表示しないようにする
   if (isMobileDevice()) {
+    // モバイルではテキストセクションを表示
+    showTextSection();
+    // フォーカスはするがキーボードは表示しない
+    // 文字認識後のキーボード表示を防止
     focusWithoutKeyboard(editor);
   } else {
     focusOnInput();
@@ -992,8 +1016,14 @@ const endDrawing = () => {
         // 誤り訂正付きの認識関数を使用
         const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
         if (rec) {
+          // 文字認識時はキーボードを表示せずに挿入
           insertAtCursor(rec);
           showRecognitionFeedback(rec);
+          
+          // 重要: d2d-inputからフォーカスを外す
+          if (document.activeElement && document.activeElement !== elements.input) {
+            document.activeElement.blur();
+          }
         }
         resetDrawState();
         clearCanvas();
@@ -1911,9 +1941,11 @@ const initResponsiveLayout = () => {
 };
 
 const initRichTextEditor = () => {
-  const editor = document.getElementById('txt-input');
+   const editor = document.getElementById('txt-input');
 
   if (!editor) return;
+  
+  setupEditorEvents();
 
   // デフォルトの色をcyanに変更
   let currentColor = 'cyan';
@@ -1986,16 +2018,11 @@ const initRichTextEditor = () => {
       // d2d-inputセクションでの操作に戻る（オプション）
       // モバイルではキーボードが表示されないようにする
       if (isMobileDevice()) {
-        // アクティブな要素からフォーカスを外す
-        if (document.activeElement) {
-          document.activeElement.blur();
-        }
-      } else {
-        // デスクトップでは通常のフォーカス
-        if (editor) {
-          focusWithoutKeyboard(editor);
-        }
-      }
+    // モバイルでは初期ロード時にキーボードを表示しないフォーカス
+    focusWithoutKeyboard(editor);
+  } else {
+    focusOnInput(); // デスクトップでは通常のフォーカス
+  }
     });
   });
 
