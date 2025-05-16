@@ -36,7 +36,7 @@ h2 {
 }
 
 section {
-    border: 2px dotted #a0a0a0;
+    border: 2px dotted #cccccc;
     padding: 10px;
     margin: 10px 0 10px 0;
 }
@@ -218,8 +218,8 @@ section:last-child {
 }
 
 .dot.numeric {
-    background-color: #fee2e2;
-    color: #ef4444;
+    background-color: #cccccc;
+    color: #ffffff;
     font-size: 16px;
 }
 

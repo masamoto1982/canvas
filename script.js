@@ -2111,7 +2111,7 @@ const addColorButtonStyles = () => {
     }
     
     #clear-button {
-      background-color: #F6AA00;
+      background-color: #cccccc;
     }
     
     #clear-button:hover {
@@ -2123,7 +2123,7 @@ const addColorButtonStyles = () => {
     }
     
     #execute-button {
-      background-color: #4DC4FF;
+      background-color: #cccccc;
     }
     
     #execute-button:hover {
