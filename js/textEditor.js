@@ -10,7 +10,6 @@
 // - tokenize (from tokenizer.js - indirectly via interpreter)
 // - parse (from parser.js - indirectly via interpreter)
 
-
 const insertColoredText = (text, color) => {
   const editor = elements.input;
   if (!editor) {
@@ -19,8 +18,7 @@ const insertColoredText = (text, color) => {
   }
 
   console.log(`%c insertColoredText CALLED with text: "${text}", color: ${color}`, 'color: purple', 'AT:', new Date().toLocaleTimeString());
-  console.trace();
-
+  // console.trace(); // Can be too verbose, enable if needed
 
   if (text === '\n') {
     console.log('  insertColoredText: text is newline, calling insertNewline()');
@@ -29,11 +27,14 @@ const insertColoredText = (text, color) => {
   }
 
   if (document.activeElement !== editor) {
-    // This condition is tricky. If we must focus, it might trigger keyboard.
-    // For d2d, focusWithoutKeyboard is called later. For keydown, it should already be focused.
-    // If this log appears unexpectedly, it's a sign of focus issues.
-    console.warn('  insertColoredText: Editor was not active. This might be an issue for execCommand. Current active:', document.activeElement);
-    // editor.focus(); // Deliberately NOT focusing here to avoid keyboard flash from d2d. Let caller manage focus.
+    // This means the editor is not focused. For `execCommand` to reliably work on the intended
+    // editor, it should be focused or have a selection.
+    // However, calling editor.focus() here can cause unwanted keyboard pop-ups,
+    // especially when this function is called programmatically (e.g., from d2d input).
+    // The responsibility of ensuring the editor is ready (focused or has selection)
+    // is pushed to the caller or specific contexts (like keydown where it's already focused).
+    console.warn('  insertColoredText: Editor was not active. Current active:', document.activeElement, '. execCommand might not work as expected unless selection is managed.');
+    // For d2d input via insertAtCursor, focusWithoutKeyboard is handled *after* this call.
   }
 
   try {
@@ -50,11 +51,11 @@ const insertNewline = () => {
   const editor = elements.input;
   if (!editor) return;
   console.log('%c insertNewline CALLED', 'color: #007bff', 'AT:', new Date().toLocaleTimeString());
-  console.trace();
+  // console.trace();
 
   if (document.activeElement !== editor) {
-      console.log('  insertNewline: Editor not focused, focusing now.');
-      editor.focus(); // Necessary for newline insertion context
+      console.log('  insertNewline: Editor not focused, focusing now (may show keyboard).');
+      editor.focus();
   }
 
   const selection = window.getSelection();
@@ -82,24 +83,44 @@ const insertAtCursor = (text) => {
   const editor = elements.input;
   if (!editor) return;
   console.log(`%c insertAtCursor CALLED with text: "${text}"`, 'color: #28a745', 'AT:', new Date().toLocaleTimeString());
-  console.trace();
+  // console.trace();
 
   const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'cyan';
+  
+  // Ensure editor is in a state to receive text, even if not "visibly" focused with keyboard.
+  // The modified insertColoredText expects the context to be somewhat ready.
+  // If `txt-input` has *never* been focused, this step is crucial.
+  if (document.activeElement !== editor) {
+      console.log('  insertAtCursor: Editor not active. Attempting to set context for execCommand using a keyboard-less focus...');
+      // Perform a minimal, keyboard-less focus to establish editing context if not active.
+      // This is a simplified version of focusWithoutKeyboard for this specific need.
+      const tempScrollX = window.scrollX;
+      const tempScrollY = window.scrollY;
+      const originalCE = editor.contentEditable;
+      editor.contentEditable = 'false'; // Prevent keyboard
+      editor.focus();                  // Establish internal focus/selection context
+      editor.contentEditable = originalCE; // Restore
+      window.scrollTo(tempScrollX, tempScrollY); // Restore scroll
+      console.log('  insertAtCursor: Context focus attempt complete. Current active:', document.activeElement);
+  }
+
   insertColoredText(text, currentActiveColor);
 
   if (isMobileDevice()) {
     console.log('  insertAtCursor: Mobile device, calling showTextSection and focusWithoutKeyboard.');
     showTextSection();
-    focusWithoutKeyboard(editor);
+    focusWithoutKeyboard(editor); // Final focus state for mobile (no keyboard)
   } else {
     console.log('  insertAtCursor: Desktop device.');
-    // focusOnInput(); // Usually not needed as editor might already be focused or interaction implies focus.
+    // On desktop, if editor wasn't focused before insertColoredText, it might need explicit focus now.
+    // However, if the above context focus worked, it might already be focused.
+    // focusOnInput();
   }
 };
 
 const clearInput = () => {
   console.log('%c clearInput CALLED', 'color: #dc3545', 'AT:', new Date().toLocaleTimeString());
-  console.trace();
+  // console.trace();
   if (elements.input) {
     elements.input.innerHTML = '';
     if (isMobileDevice()){
@@ -114,10 +135,10 @@ const handleDeleteAction = (deleteToken = false) => {
   const editor = elements.input;
   if (!editor) return;
   console.log(`%c handleDeleteAction CALLED, deleteToken: ${deleteToken}`, 'color: #fd7e14', 'AT:', new Date().toLocaleTimeString());
-  console.trace();
+  // console.trace();
 
   if (document.activeElement !== editor) {
-      console.log('  handleDeleteAction: Editor not focused, focusing now.');
+      console.log('  handleDeleteAction: Editor not focused, focusing now (may show keyboard).');
       editor.focus();
   }
 
@@ -127,14 +148,12 @@ const handleDeleteAction = (deleteToken = false) => {
         console.warn('  handleDeleteAction (token): No selection range.');
         return;
     }
-
     const cursorPosition = getCursorPosition(editor);
     if (cursorPosition === 0) {
         console.log('  handleDeleteAction (token): Cursor at start, nothing to delete.');
         return;
     }
     console.log(`  handleDeleteAction (token): Cursor position: ${cursorPosition}`);
-
     const fullText = editor.textContent || '';
     let tokenStart = cursorPosition;
     let foundWord = false;
@@ -154,8 +173,6 @@ const handleDeleteAction = (deleteToken = false) => {
       else break;
     }
     console.log(`  handleDeleteAction (token): Calculated deletion range from ${spaceStart} to ${cursorPosition}`);
-
-    const range = selection.getRangeAt(0); // This range is usually the current cursor/selection
      if (editor.firstChild) {
         const currentSelection = window.getSelection();
         currentSelection.removeAllRanges();
@@ -216,7 +233,7 @@ const executeCode = () => {
   const editor = elements.input;
   if (!editor) return;
   console.log('%c executeCode CALLED', 'color: #6f42c1', 'AT:', new Date().toLocaleTimeString());
-  console.trace();
+  // console.trace();
 
   const result = interpreter.execute(editor);
   console.log('  executeCode: Interpreter result -', result);
@@ -228,9 +245,7 @@ const executeCode = () => {
       setTimeout(() => elements.output.classList.remove('executed'), 300);
     }
   }
-
   showOutputSection();
-
   if (isMobileDevice()) {
     focusWithoutKeyboard(editor);
   } else {
@@ -244,11 +259,10 @@ const setupEditorEvents = () => {
   console.log('setupEditorEvents CALLED');
 
   editor.addEventListener('touchstart', (e) => {
-    console.log('%c editor TOUCHSTART event', 'color: #17a2b8', 'AT:', new Date().toLocaleTimeString(), e);
-    // No preventDefault here for native focus
+    console.log('%c editor TOUCHSTART event', 'color: #17a2b8', 'AT:', new Date().toLocaleTimeString());
+    // No preventDefault here, allows native focus and keyboard on tap
   });
 };
-
 
 function initRichTextEditor() {
   const editor = document.getElementById('txt-input');
@@ -271,7 +285,7 @@ function initRichTextEditor() {
 
   const applyColor = (color) => {
     console.log(`%c applyColor CALLED with color: ${color}`, 'color: #ffc107', 'AT:', new Date().toLocaleTimeString());
-    console.trace();
+    // console.trace();
     currentColor = color;
     colorButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.color === color);
@@ -288,10 +302,12 @@ function initRichTextEditor() {
   };
 
   editor.addEventListener('focus', () => {
-    console.log('%c editor FOCUS event', 'color: #20c997', 'AT:', new Date().toLocaleTimeString(), 'Current activeElement before this event logic:', document.activeElement);
-    console.trace();
+    console.log('%c editor FOCUS event', 'color: #20c997', 'AT:', new Date().toLocaleTimeString(), 'target:', event.target, 'Current activeElement before this event logic:', document.activeElement);
+    // console.trace();
+    // This event fires when the user explicitly taps the editor OR it's programmatically focused.
+    // We only want to ensure color for typing when it's a "real" focus intending input.
     if (editor.contentEditable === 'true' && !editor.hasAttribute('readonly')) {
-        console.log('  editor.focus: Setting foreColor to', currentColor);
+        console.log('  editor.focus: Setting foreColor to', currentColor, 'for typing.');
         document.execCommand('styleWithCSS', false, true);
         document.execCommand('foreColor', false, colorCodes[currentColor] || colorCodes['cyan']);
     } else {
@@ -299,12 +315,10 @@ function initRichTextEditor() {
     }
   });
 
-  // Temporary blur listener for debugging
   editor.addEventListener('blur', () => {
-    console.log('%c editor BLUR event', 'color: #e83e8c', 'AT:', new Date().toLocaleTimeString(), 'New activeElement:', document.activeElement);
-    console.trace(); // Why did it blur?
+    console.log('%c editor BLUR event', 'color: #e83e8c', 'AT:', new Date().toLocaleTimeString(), 'target:', event.target, 'New activeElement:', document.activeElement);
+    // console.trace();
   });
-
 
   editor.addEventListener('input', (e) => {
     // console.log('editor INPUT event', e, 'AT:', new Date().toLocaleTimeString()); // Can be very noisy
@@ -312,8 +326,8 @@ function initRichTextEditor() {
     const selection = window.getSelection();
     if (selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
-      if (!range.collapsed) {
-           console.log('  editor.input: Applying color to selection.');
+      if (!range.collapsed) { // Only if there's an actual selection
+           console.log('  editor.input: Applying color to current selection.');
            document.execCommand('styleWithCSS', false, true);
            document.execCommand('foreColor', false, colorCodes[activeColor] || colorCodes['cyan']);
       }
@@ -325,15 +339,15 @@ function initRichTextEditor() {
       console.log(`Color button clicked: ${btn.dataset.color}`);
       applyColor(btn.dataset.color);
       if (isMobileDevice()) {
-        focusWithoutKeyboard(editor);
+        focusWithoutKeyboard(editor); // After color change, focus editor without keyboard on mobile
       } else {
-        focusOnInput();
+        focusOnInput(); // On desktop, focus with keyboard
       }
     });
   });
 
   editor.addEventListener('keydown', (e) => {
-    // console.log('editor KEYDOWN event', e.key, 'AT:', new Date().toLocaleTimeString()); // Can be noisy
+    // console.log('editor KEYDOWN event', e.key, 'AT:', new Date().toLocaleTimeString());
     if (e.key === 'Enter' && e.shiftKey) {
       console.log('  keydown: Shift+Enter -> executeCode');
       e.preventDefault();
@@ -358,12 +372,14 @@ function initRichTextEditor() {
         e.preventDefault();
         applyColor(colorToApply);
       }
-      return;
+      return; // Allow other Ctrl/Meta shortcuts
     }
 
+    // Handle printable characters
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       console.log(`  keydown: Printable key "${e.key}" -> insert with color ${currentColor}`);
       e.preventDefault();
+      // Ensure color is set for this insertion
       document.execCommand('styleWithCSS', false, true);
       document.execCommand('foreColor', false, colorCodes[currentColor] || colorCodes['cyan']);
       document.execCommand('insertText', false, e.key);
@@ -381,7 +397,7 @@ function initRichTextEditor() {
 
   editor.addEventListener('paste', (e) => {
     console.log('%c editor PASTE event', 'color: #6610f2', 'AT:', new Date().toLocaleTimeString());
-    console.trace();
+    // console.trace();
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
     console.log('  paste: Pasting text -', text);
@@ -390,9 +406,12 @@ function initRichTextEditor() {
     document.execCommand('insertText', false, text);
   });
 
-  console.log('initRichTextEditor: Initial focus setting...');
+  console.log('initRichTextEditor: Initial focus setting (now primary)...');
   if (isMobileDevice()) {
-    focusWithoutKeyboard(editor);
+    setTimeout(() => { // Test with a delay
+        console.log('%c Attempting DELAYED focusWithoutKeyboard from initRichTextEditor (primary)', 'color: darkcyan; font-weight: bold;');
+        focusWithoutKeyboard(editor);
+    }, 100);
   } else {
     focusOnInput();
   }
