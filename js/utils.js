@@ -6,7 +6,7 @@
 // export const getPrimeFactors = (num) => { ... };
 // etc.
 
-const rgbToColorName = (rgb) => { //
+const rgbToColorName = (rgb) => {
   const exactColors = {
     '#FF4B00': 'red',
     '#03AF7A': 'green',
@@ -37,12 +37,12 @@ const rgbToColorName = (rgb) => { //
   return 'cyan';
 };
 
-const getCurrentColor = () => { //
+const getCurrentColor = () => {
   const activeColorBtn = document.querySelector('.color-btn.active');
   return activeColorBtn ? activeColorBtn.dataset.color : 'cyan';
 };
 
-const getPrimeFactors = (num) => { //
+const getPrimeFactors = (num) => {
   const factors = [];
   let divisor = 2;
   while (num > 1) {
@@ -59,7 +59,7 @@ const getPrimeFactors = (num) => { //
   return factors;
 };
 
-const findSubsetProductMatches = (factors, dotValues) => { //
+const findSubsetProductMatches = (factors, dotValues) => {
   const candidates = [];
   const maxSubsets = Math.min(10, Math.pow(2, factors.length));
   for (let i = 1; i < maxSubsets; i++) {
@@ -70,7 +70,7 @@ const findSubsetProductMatches = (factors, dotValues) => { //
       }
     }
     const product = subset.reduce((a, b) => a * b, 1);
-    if (letterPatterns[product]) {
+    if (letterPatterns[product]) { // letterPatterns should be globally available from constants.js
       candidates.push({
         letter: letterPatterns[product],
         product: product,
@@ -81,41 +81,84 @@ const findSubsetProductMatches = (factors, dotValues) => { //
   return candidates.sort((a, b) => a.distance - b.distance);
 };
 
-const isMobileDevice = () => { //
+const isMobileDevice = () => {
   return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android/i.test(navigator.userAgent);
 };
 
-const focusWithoutKeyboard = (element) => { //
-  if (!element) return;
+const focusWithoutKeyboard = (element) => {
+  console.log('%c focusWithoutKeyboard CALLED FOR:', 'color: red; font-weight: bold;', element, 'AT:', new Date().toLocaleTimeString());
+  if (element) {
+    console.log(`  Element visible (offsetHeight): ${element.offsetHeight > 0}, contentEditable: ${element.contentEditable}`);
+  }
+  console.trace(); // 呼び出し元のスタックトレースを表示
+
+  if (!element) {
+    console.log('%c focusWithoutKeyboard: Element is null, exiting.', 'color: orange;');
+    return;
+  }
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
   const originalReadOnly = element.getAttribute('readonly');
   const originalContentEditable = element.getAttribute('contenteditable');
+
+  console.log(`  Before focus attempt: readonly=${originalReadOnly}, contentEditable=${originalContentEditable}`);
+
   if (element.tagName.toLowerCase() === 'div' && originalContentEditable === 'true') {
     element.setAttribute('contenteditable', 'false');
+    console.log('  Temporarily set contenteditable to false');
   } else {
     element.setAttribute('readonly', 'readonly');
+    console.log('  Temporarily set readonly to true');
   }
-  element.focus();
+
+  element.focus(); // ★フォーカスを当てる
+
   if (element.tagName.toLowerCase() === 'div' && originalContentEditable === 'true') {
     element.setAttribute('contenteditable', 'true');
+    console.log('  Restored contenteditable to true');
   } else {
     if (originalReadOnly) {
       element.setAttribute('readonly', originalReadOnly);
+      console.log('  Restored readonly to original value:', originalReadOnly);
     } else {
       element.removeAttribute('readonly');
+      console.log('  Removed readonly attribute');
     }
   }
   window.scrollTo(scrollX, scrollY);
+
+  // --- デバッグログ追加 ---
+  if (document.activeElement === element) {
+    console.log('%c focusWithoutKeyboard: Successfully focused', 'color: green;', element);
+  } else {
+    console.log('%c focusWithoutKeyboard: FAILED to focus or focus lost immediately.', 'color: orange;', element, 'Current activeElement:', document.activeElement);
+  }
+  // --- デバッグログ追加ここまで ---
 };
 
-const focusOnInput = () => { //
-  const editor = elements.input;
-  if (!editor) return;
+const focusOnInput = () => {
+  const editor = elements.input; // elements should be globally available from state.js
+  console.log('%c focusOnInput CALLED FOR:', 'color: blue; font-weight: bold;', editor, 'AT:', new Date().toLocaleTimeString());
+  if (editor) {
+    console.log(`  Element visible (offsetHeight): ${editor.offsetHeight > 0}, contentEditable: ${editor.contentEditable}`);
+  }
+  console.trace();
+
+  if (!editor) {
+    console.log('%c focusOnInput: Editor element is null, exiting.', 'color: orange;');
+    return;
+  }
   editor.focus();
+  // --- デバッグログ追加 ---
+  if (document.activeElement === editor) {
+    console.log('%c focusOnInput: Successfully focused', 'color: green;', editor);
+  } else {
+    console.log('%c focusOnInput: FAILED to focus or focus lost immediately.', 'color: orange;', editor, 'Current activeElement:', document.activeElement);
+  }
+  // --- デバッグログ追加ここまで ---
 };
 
-const getCursorPosition = (element) => { //
+const getCursorPosition = (element) => {
   const selection = window.getSelection();
   if (!selection.rangeCount) return 0;
   const range = selection.getRangeAt(0);
@@ -125,7 +168,7 @@ const getCursorPosition = (element) => { //
   return preCaretRange.toString().length;
 };
 
-const setCursorPosition = (element, position) => { //
+const setCursorPosition = (element, position) => {
   let charIndex = 0;
   let foundPosition = false;
   const traverseNodes = (node) => {
@@ -167,7 +210,7 @@ const setCursorPosition = (element, position) => { //
   }
 };
 
-const findLastTextNode = (element) => { //
+const findLastTextNode = (element) => {
   if (element.nodeType === Node.TEXT_NODE) return element;
   for (let i = element.childNodes.length - 1; i >= 0; i--) {
     const lastNode = findLastTextNode(element.childNodes[i]);
@@ -176,28 +219,28 @@ const findLastTextNode = (element) => { //
   return null;
 };
 
-const showTextSection = () => { //
-  if (isMobileDevice() && elements.textSection && elements.outputSection) {
+const showTextSection = () => {
+  if (isMobileDevice() && elements.textSection && elements.outputSection) { // elements from state.js
     elements.outputSection.classList.add('hide');
     elements.textSection.classList.remove('hide');
   }
 };
 
-const showOutputSection = () => { //
-  if (isMobileDevice() && elements.textSection && elements.outputSection) {
+const showOutputSection = () => {
+  if (isMobileDevice() && elements.textSection && elements.outputSection) { // elements from state.js
     elements.textSection.classList.add('hide');
     elements.outputSection.classList.remove('hide');
   }
 };
 
-const updateConfigStyles = () => { //
+const updateConfigStyles = () => {
   const existing = document.getElementById('dynamic-config-styles');
   if (existing) existing.remove();
   const s = document.createElement('style');
   s.id = 'dynamic-config-styles';
   s.textContent = `
     #dot-grid {
-      gap: ${CONFIG.layout.dotGap}px;
+      gap: ${CONFIG.layout.dotGap}px; /* CONFIG from constants.js */
     }
     .dot-row {
       gap: ${CONFIG.layout.dotGap}px;

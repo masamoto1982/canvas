@@ -13,47 +13,48 @@
 
 const insertColoredText = (text, color) => {
   const editor = elements.input;
-  if (!editor) return;
-
-  // XXX: 意図しないキーボード表示の可能性があったため、ここでの明示的な editor.focus() 呼び出しを削除。
-  // 呼び出し元 (keydown ハンドラや paste ハンドラ) が既にエディタにフォーカスを持っているか、
-  // insertAtCursor の場合は後続の focusWithoutKeyboard でフォーカス管理されることを期待。
-  // エディタがアクティブでない場合に execCommand が失敗する可能性があるため、
-  // 呼び出し側でフォーカスを保証するか、この関数が呼ばれる文脈を限定する必要がある。
-  // 通常、keydown や paste ではエディタはアクティブになっている。
-
-  if (text === '\n') {
-    insertNewline(); // insertNewline は内部でフォーカスを扱う可能性がある
+  if (!editor) {
+    console.error('insertColoredText: editor element not found.');
     return;
   }
 
-  // execCommand を実行するためには、対象の要素がフォーカスされているか、
-  // またはドキュメント内で選択範囲が確立されている必要がある。
-  // ここでは、呼び出し元がフォーカスを管理していると仮定する。
-  // もし問題があれば、呼び出し元で editor.focus() を明示的に行う必要がある。
-  if (document.activeElement !== editor) {
-      // keydown や paste イベント以外から呼ばれる場合 (例: プログラムからの直接呼び出し) は、
-      // フォーカスがないと execCommand が期待通りに動作しないことがある。
-      // しかし、無条件に focus() するとキーボード問題が再発する可能性がある。
-      // この関数の使用箇所とその時点でのフォーカス状態を慎重に管理する必要がある。
-      // 現状では、d2d からの insertAtCursor -> insertColoredText の流れでは、
-      // insertAtCursor の最後に focusWithoutKeyboard があるため、ここでの focus() は不要かつ問題を起こす。
-      // keydown からの場合は既に focus されている。
+  console.log(`%c insertColoredText CALLED with text: "${text}", color: ${color}`, 'color: purple', 'AT:', new Date().toLocaleTimeString());
+  console.trace();
+
+
+  if (text === '\n') {
+    console.log('  insertColoredText: text is newline, calling insertNewline()');
+    insertNewline();
+    return;
   }
 
+  if (document.activeElement !== editor) {
+    // This condition is tricky. If we must focus, it might trigger keyboard.
+    // For d2d, focusWithoutKeyboard is called later. For keydown, it should already be focused.
+    // If this log appears unexpectedly, it's a sign of focus issues.
+    console.warn('  insertColoredText: Editor was not active. This might be an issue for execCommand. Current active:', document.activeElement);
+    // editor.focus(); // Deliberately NOT focusing here to avoid keyboard flash from d2d. Let caller manage focus.
+  }
 
-  document.execCommand('styleWithCSS', false, true);
-  document.execCommand('foreColor', false, colorCodes[color] || colorCodes['cyan']);
-  document.execCommand('insertText', false, text);
+  try {
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, colorCodes[color] || colorCodes['cyan']);
+    document.execCommand('insertText', false, text);
+    console.log('  insertColoredText: execCommands executed.');
+  } catch (e) {
+    console.error('  insertColoredText: Error during execCommand:', e);
+  }
 };
 
 const insertNewline = () => {
   const editor = elements.input;
   if (!editor) return;
+  console.log('%c insertNewline CALLED', 'color: #007bff', 'AT:', new Date().toLocaleTimeString());
+  console.trace();
 
-  // 改行挿入のためにはエディタがフォーカスされている必要がある
   if (document.activeElement !== editor) {
-      editor.focus();
+      console.log('  insertNewline: Editor not focused, focusing now.');
+      editor.focus(); // Necessary for newline insertion context
   }
 
   const selection = window.getSelection();
@@ -65,13 +66,14 @@ const insertNewline = () => {
 
     const newRange = document.createRange();
     newRange.setStartAfter(br);
-    newRange.setEndAfter(br); // Ensure cursor is after <br>
+    newRange.setEndAfter(br);
     selection.removeAllRanges();
     selection.addRange(newRange);
 
     br.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-
+    console.log('  insertNewline: Newline BR inserted.');
   } else {
+    console.warn('  insertNewline: No selection range found, fallback to insertHTML.');
     document.execCommand('insertHTML', false, '<br><br>');
   }
 };
@@ -79,21 +81,25 @@ const insertNewline = () => {
 const insertAtCursor = (text) => {
   const editor = elements.input;
   if (!editor) return;
+  console.log(`%c insertAtCursor CALLED with text: "${text}"`, 'color: #28a745', 'AT:', new Date().toLocaleTimeString());
+  console.trace();
 
   const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'cyan';
-  // insertColoredText を呼び出す前にエディタがフォーカスされている必要はない (とされる修正)
-  // insertColoredText は execCommand を実行するが、その時点での選択範囲に依存する
   insertColoredText(text, currentActiveColor);
 
   if (isMobileDevice()) {
+    console.log('  insertAtCursor: Mobile device, calling showTextSection and focusWithoutKeyboard.');
     showTextSection();
-    focusWithoutKeyboard(editor); // d2d入力後はキーボードなしでフォーカス
+    focusWithoutKeyboard(editor);
   } else {
-    // focusOnInput(); // デスクトップでは必要に応じてフォーカス (insertColoredText がフォーカスを変えていなければ)
+    console.log('  insertAtCursor: Desktop device.');
+    // focusOnInput(); // Usually not needed as editor might already be focused or interaction implies focus.
   }
 };
 
 const clearInput = () => {
+  console.log('%c clearInput CALLED', 'color: #dc3545', 'AT:', new Date().toLocaleTimeString());
+  console.trace();
   if (elements.input) {
     elements.input.innerHTML = '';
     if (isMobileDevice()){
@@ -107,19 +113,28 @@ const clearInput = () => {
 const handleDeleteAction = (deleteToken = false) => {
   const editor = elements.input;
   if (!editor) return;
+  console.log(`%c handleDeleteAction CALLED, deleteToken: ${deleteToken}`, 'color: #fd7e14', 'AT:', new Date().toLocaleTimeString());
+  console.trace();
 
   if (document.activeElement !== editor) {
+      console.log('  handleDeleteAction: Editor not focused, focusing now.');
       editor.focus();
   }
 
   if (deleteToken) {
     const selection = window.getSelection();
-    if (!selection.rangeCount) return;
+    if (!selection.rangeCount) {
+        console.warn('  handleDeleteAction (token): No selection range.');
+        return;
+    }
 
     const cursorPosition = getCursorPosition(editor);
-    if (cursorPosition === 0) return;
+    if (cursorPosition === 0) {
+        console.log('  handleDeleteAction (token): Cursor at start, nothing to delete.');
+        return;
+    }
+    console.log(`  handleDeleteAction (token): Cursor position: ${cursorPosition}`);
 
-    // トークン削除ロジック (前回提示のもの)
     const fullText = editor.textContent || '';
     let tokenStart = cursorPosition;
     let foundWord = false;
@@ -138,7 +153,9 @@ const handleDeleteAction = (deleteToken = false) => {
       if (char === ' ' || char === '\n') spaceStart--;
       else break;
     }
-    const range = selection.getRangeAt(0);
+    console.log(`  handleDeleteAction (token): Calculated deletion range from ${spaceStart} to ${cursorPosition}`);
+
+    const range = selection.getRangeAt(0); // This range is usually the current cursor/selection
      if (editor.firstChild) {
         const currentSelection = window.getSelection();
         currentSelection.removeAllRanges();
@@ -173,12 +190,18 @@ const handleDeleteAction = (deleteToken = false) => {
         if (startNodeFound && endNodeFound) {
             currentSelection.addRange(tempRange);
             document.execCommand('delete', false, null);
+            console.log('  handleDeleteAction (token): Token deleted using calculated range.');
         } else {
-            document.execCommand('delete', false, null); // Fallback
+            console.warn('  handleDeleteAction (token): Failed to set precise range, using default delete.');
+            document.execCommand('delete', false, null);
         }
+    } else {
+        console.warn('  handleDeleteAction (token): Editor has no children, using default delete.');
+        document.execCommand('delete', false, null);
     }
   } else {
     document.execCommand('delete', false, null);
+    console.log('  handleDeleteAction (single char): Standard delete executed.');
   }
 
   if (isMobileDevice()) {
@@ -192,15 +215,17 @@ const handleDeleteAction = (deleteToken = false) => {
 const executeCode = () => {
   const editor = elements.input;
   if (!editor) return;
+  console.log('%c executeCode CALLED', 'color: #6f42c1', 'AT:', new Date().toLocaleTimeString());
+  console.trace();
 
   const result = interpreter.execute(editor);
+  console.log('  executeCode: Interpreter result -', result);
 
   if (elements.output) {
     elements.output.value = result;
     if (!result.startsWith('Error:')) {
       elements.output.classList.add('executed');
       setTimeout(() => elements.output.classList.remove('executed'), 300);
-      // editor.innerHTML = ''; // 必要に応じて有効化
     }
   }
 
@@ -216,20 +241,25 @@ const executeCode = () => {
 const setupEditorEvents = () => {
   const editor = elements.input;
   if (!editor) return;
+  console.log('setupEditorEvents CALLED');
 
   editor.addEventListener('touchstart', (e) => {
-    // txt-input を直接タップした場合は、デフォルトのフォーカス処理（キーボード表示）を許可
-    // preventDefault は呼び出さない
+    console.log('%c editor TOUCHSTART event', 'color: #17a2b8', 'AT:', new Date().toLocaleTimeString(), e);
+    // No preventDefault here for native focus
   });
 };
 
 
 function initRichTextEditor() {
-  const editor = document.getElementById('txt-input'); // This is elements.input
-  if (!editor) return;
+  const editor = document.getElementById('txt-input');
+  if (!editor) {
+      console.error("initRichTextEditor: Editor element 'txt-input' not found!");
+      return;
+  }
+  console.log('initRichTextEditor CALLED');
 
   setupEditorEvents();
-  let currentColor = 'cyan'; // このモジュール内での現在の色状態
+  let currentColor = 'cyan';
   const colorButtons = document.querySelectorAll('.color-btn');
 
   editor.style.caretColor = colorCodes[currentColor] || currentColor;
@@ -240,6 +270,8 @@ function initRichTextEditor() {
   }
 
   const applyColor = (color) => {
+    console.log(`%c applyColor CALLED with color: ${color}`, 'color: #ffc107', 'AT:', new Date().toLocaleTimeString());
+    console.trace();
     currentColor = color;
     colorButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.color === color);
@@ -248,6 +280,7 @@ function initRichTextEditor() {
     if (editor) {
       editor.style.caretColor = colorCodes[color] || color;
       if (document.activeElement === editor && editor.contentEditable === 'true' && !editor.hasAttribute('readonly')) {
+        console.log('  applyColor: Editor is active, applying foreColor immediately.');
         document.execCommand('styleWithCSS', false, true);
         document.execCommand('foreColor', false, colorCodes[color] || colorCodes['cyan']);
       }
@@ -255,19 +288,32 @@ function initRichTextEditor() {
   };
 
   editor.addEventListener('focus', () => {
-    // ユーザーが txt-input をタップするなどしてフォーカスした場合、入力のための文字色を設定
+    console.log('%c editor FOCUS event', 'color: #20c997', 'AT:', new Date().toLocaleTimeString(), 'Current activeElement before this event logic:', document.activeElement);
+    console.trace();
     if (editor.contentEditable === 'true' && !editor.hasAttribute('readonly')) {
+        console.log('  editor.focus: Setting foreColor to', currentColor);
         document.execCommand('styleWithCSS', false, true);
         document.execCommand('foreColor', false, colorCodes[currentColor] || colorCodes['cyan']);
+    } else {
+        console.log('  editor.focus: Condition not met for setting foreColor (contentEditable:', editor.contentEditable, 'readonly:', editor.hasAttribute('readonly') + ')');
     }
   });
 
+  // Temporary blur listener for debugging
+  editor.addEventListener('blur', () => {
+    console.log('%c editor BLUR event', 'color: #e83e8c', 'AT:', new Date().toLocaleTimeString(), 'New activeElement:', document.activeElement);
+    console.trace(); // Why did it blur?
+  });
+
+
   editor.addEventListener('input', (e) => {
-    const activeColor = getCurrentColor(); // グローバルな現在の色を取得 (utils.js)
+    // console.log('editor INPUT event', e, 'AT:', new Date().toLocaleTimeString()); // Can be very noisy
+    const activeColor = getCurrentColor();
     const selection = window.getSelection();
     if (selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
-      if (!range.collapsed) { // 既存の選択範囲がある場合のみ色を適用
+      if (!range.collapsed) {
+           console.log('  editor.input: Applying color to selection.');
            document.execCommand('styleWithCSS', false, true);
            document.execCommand('foreColor', false, colorCodes[activeColor] || colorCodes['cyan']);
       }
@@ -276,6 +322,7 @@ function initRichTextEditor() {
 
   colorButtons.forEach(btn => {
     btn.addEventListener('click', () => {
+      console.log(`Color button clicked: ${btn.dataset.color}`);
       applyColor(btn.dataset.color);
       if (isMobileDevice()) {
         focusWithoutKeyboard(editor);
@@ -286,55 +333,68 @@ function initRichTextEditor() {
   });
 
   editor.addEventListener('keydown', (e) => {
+    // console.log('editor KEYDOWN event', e.key, 'AT:', new Date().toLocaleTimeString()); // Can be noisy
     if (e.key === 'Enter' && e.shiftKey) {
+      console.log('  keydown: Shift+Enter -> executeCode');
       e.preventDefault();
       executeCode();
       return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
+      console.log('  keydown: Enter -> insertNewline');
       e.preventDefault();
       insertNewline();
       return;
     }
     if (e.ctrlKey || e.metaKey) {
-      if (e.key.toLowerCase() === 'r') { e.preventDefault(); applyColor('red'); return; }
-      else if (e.key.toLowerCase() === 'b') { e.preventDefault(); applyColor('blue'); return; }
-      else if (e.key.toLowerCase() === 'g') { e.preventDefault(); applyColor('green'); return; }
-      else if (e.key.toLowerCase() === 'c') { e.preventDefault(); applyColor('cyan'); return; }
-      return; // 他の Ctrl/Meta ショートカットはデフォルト動作を許可
+      let colorToApply = null;
+      if (e.key.toLowerCase() === 'r') colorToApply = 'red';
+      else if (e.key.toLowerCase() === 'b') colorToApply = 'blue';
+      else if (e.key.toLowerCase() === 'g') colorToApply = 'green';
+      else if (e.key.toLowerCase() === 'c') colorToApply = 'cyan';
+      
+      if (colorToApply) {
+        console.log(`  keydown: Ctrl/Meta + ${e.key} -> applyColor(${colorToApply})`);
+        e.preventDefault();
+        applyColor(colorToApply);
+      }
+      return;
     }
 
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      console.log(`  keydown: Printable key "${e.key}" -> insert with color ${currentColor}`);
       e.preventDefault();
-      // キー入力時には、まずエディタにフォーカスがあることを確認
-      // (通常 keydown イベント自体がフォーカスされた要素で発生する)
-      // そして、現在の色で文字を挿入
       document.execCommand('styleWithCSS', false, true);
       document.execCommand('foreColor', false, colorCodes[currentColor] || colorCodes['cyan']);
       document.execCommand('insertText', false, e.key);
       return;
     }
     if (e.key === 'Tab') {
+      console.log('  keydown: Tab -> insert spaces');
       e.preventDefault();
       document.execCommand('styleWithCSS', false, true);
       document.execCommand('foreColor', false, colorCodes[currentColor] || colorCodes['cyan']);
-      document.execCommand('insertText', false, '    '); // タブの代わりにスペース4つ
+      document.execCommand('insertText', false, '    ');
       return;
     }
   });
 
   editor.addEventListener('paste', (e) => {
+    console.log('%c editor PASTE event', 'color: #6610f2', 'AT:', new Date().toLocaleTimeString());
+    console.trace();
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
-    // ペースト時も現在の色を適用
+    console.log('  paste: Pasting text -', text);
     document.execCommand('styleWithCSS', false, true);
     document.execCommand('foreColor', false, colorCodes[currentColor] || colorCodes['cyan']);
     document.execCommand('insertText', false, text);
   });
 
+  console.log('initRichTextEditor: Initial focus setting...');
   if (isMobileDevice()) {
     focusWithoutKeyboard(editor);
   } else {
     focusOnInput();
   }
+  console.log('initRichTextEditor: COMPLETED');
 }
