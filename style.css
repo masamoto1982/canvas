@@ -1,0 +1,386 @@
+:root {
+  /* 心理四原色 */
+  --color-red: #FF0000;
+  --color-yellow: #FFD700;
+  --color-green: #00FF00;
+  --color-blue: #0000FF;
+  
+  /* 淡い版（背景用） */
+  --color-red-light: #FFE5E5;
+  --color-yellow-light: #FFF9E5;
+  --color-green-light: #E5FFE5;
+  --color-blue-light: #E5E5FF;
+  
+  /* UI色 */
+  --color-bg: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-border: #dddddd;
+  --color-text: #333333;
+  --color-primary: #4a90e2;
+  --color-secondary: #999999;
+  
+  /* スペーシング */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  
+  /* その他 */
+  --radius: 6px;
+  --transition: 150ms ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  overscroll-behavior: none;
+}
+
+.app {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--spacing-md);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 300;
+}
+
+.version {
+  font-size: 0.875rem;
+  color: var(--color-secondary);
+}
+
+.main {
+  display: grid;
+  gap: var(--spacing-lg);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .main {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .d2d-section {
+    grid-column: span 2;
+  }
+}
+
+section {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+h2 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--color-secondary);
+}
+
+.controls {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #357abd;
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #777;
+}
+
+.editor {
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  outline: none;
+}
+
+.editor:focus {
+  border-color: var(--color-primary);
+}
+
+.color-palette {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+  justify-content: center;
+}
+
+.color-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  background-color: white;
+}
+
+.color-btn[data-color="red"] {
+  color: var(--color-red);
+  border-color: var(--color-red);
+}
+
+.color-btn[data-color="red"].active {
+  background-color: var(--color-red-light);
+}
+
+.color-btn[data-color="yellow"] {
+  color: #FF8C00; /* より見やすいオレンジ寄りの黄色 */
+  border-color: var(--color-yellow);
+}
+
+.color-btn[data-color="yellow"].active {
+  background-color: var(--color-yellow-light);
+}
+
+.color-btn[data-color="green"] {
+  color: #00AA00; /* より見やすい緑 */
+  border-color: var(--color-green);
+}
+
+.color-btn[data-color="green"].active {
+  background-color: var(--color-green-light);
+}
+
+.color-btn[data-color="blue"] {
+  color: var(--color-blue);
+  border-color: var(--color-blue);
+}
+
+.color-btn[data-color="blue"].active {
+  background-color: var(--color-blue-light);
+}
+
+.output {
+  min-height: 100px;
+  padding: var(--spacing-md);
+  background-color: #f8f8f8;
+  border-radius: var(--radius);
+  font-family: monospace;
+  font-size: 14px;
+  white-space: pre-wrap;
+  transition: background-color var(--transition);
+}
+
+.output.success {
+  background-color: #d4edda;
+}
+
+.output.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.d2d-container {
+  position: relative;
+  min-height: 350px;
+  user-select: none;
+  touch-action: none;
+}
+
+#canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.dot-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  align-items: center;
+  padding: var(--spacing-md);
+}
+
+.dot-row {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.dot {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  border: 2px solid #bbb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.dot:hover {
+  transform: scale(1.1);
+  background-color: #d0d0d0;
+}
+
+.dot.active {
+  background-color: #ffcccc;
+  border-color: #ff6666;
+  transform: scale(0.95);
+}
+
+.dot.numeric {
+  background-color: #ddd;
+  color: #333;
+}
+
+.special-controls {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.special-btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: #e5e5e5;
+  border: 2px solid #ccc;
+  border-radius: var(--radius);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.special-btn:hover {
+  background-color: #d5d5d5;
+}
+
+.special-btn:active {
+  transform: scale(0.95);
+}
+
+.recognition-feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  font-weight: bold;
+  color: var(--color-primary);
+  animation: fadeOut 0.8s ease-out forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .editor {
+    min-height: 150px;
+    font-size: 16px; /* タッチデバイスでの可読性向上 */
+	-webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+  
+  /* D2Dコンテナのタッチ操作最適化 */
+  .d2d-container {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .dot {
+    width: 45px;
+    height: 45px;
+	 -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  
+  .special-btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  .output-section {
+    display: none;
+  }
+  
+  .output-section.active {
+    display: block;
+  }
+  
+  .editor-section.hidden {
+    display: none;
+  }
+  
+  .editor span[style*="color"] {
+  color: inherit !important;
+}
+}
