@@ -11,12 +11,6 @@ const typePrefix = {
 // グローバル変数として現在の色を管理
 let currentActiveColor = 'cyan';
 
-// getCurrentColor関数を最初に定義
-const getCurrentColor = () => {
-  const activeColorBtn = document.querySelector('.color-btn.active');
-  return activeColorBtn ? activeColorBtn.dataset.color : 'cyan';
-};
-
 // 既存の関数の順序を修正（executeCodeを先に定義）
 const executeCode = () => {
   const editor = elements.input;
@@ -140,8 +134,8 @@ const insertNewline = () => {
 const insertAtCursor = (text) => {
   const editor = elements.input;
   if (!editor) return;
-  const color = getCurrentColor();
-  insertColoredText(text, color);
+  // currentActiveColorを使用
+  insertColoredText(text, currentActiveColor);
   if (isMobileDevice()) {
     showTextSection();
     // d2d-inputからの入力の場合はキーボードを表示しない
@@ -228,24 +222,27 @@ const setupEditorEvents = () => {
   const editor = elements.input;
   if (!editor) return;
   
-  // モバイルでの入力モード制御
-  if (isMobileDevice()) {
-    // クリックでキーボード表示
-    editor.addEventListener('click', (e) => {
-      if (e.isTrusted) {
-        editor.isKeyboardMode = true;
-        focusWithKeyboard(editor);
-      }
-    });
-    
-    // Androidキーボードからの入力を処理
-    editor.addEventListener('input', (e) => {
-      // 入力後に型プレフィックスをチェック
-      setTimeout(() => {
-        detectAndApplyTypePrefix(editor);
-      }, 0);
-    });
-  }
+  // モバイルでもデスクトップでも同じ処理
+  editor.addEventListener('click', (e) => {
+    if (e.isTrusted && isMobileDevice()) {
+      editor.isKeyboardMode = true;
+      focusWithKeyboard(editor);
+    }
+  });
+  
+  // 入力前にカラーを設定
+  editor.addEventListener('beforeinput', (e) => {
+    // カラーを確実に設定
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, colorCodes[currentActiveColor]);
+  });
+  
+  // 入力後に型プレフィックスをチェック
+  editor.addEventListener('input', (e) => {
+    setTimeout(() => {
+      detectAndApplyTypePrefix(editor);
+    }, 0);
+  });
 };
 
 function initRichTextEditor() {
@@ -266,6 +263,7 @@ function initRichTextEditor() {
     });
     if (editor) {
       editor.style.caretColor = colorCodes[color] || color;
+      // フォーカスがある場合は即座に色を適用
       if (document.activeElement === editor) {
         document.execCommand('styleWithCSS', false, true);
         document.execCommand('foreColor', false, colorCodes[color] || colorCodes['cyan']);
@@ -273,13 +271,6 @@ function initRichTextEditor() {
     }
   };
   
-  editor.addEventListener('input', (e) => {
-    // 入力イベントの最後に型プレフィックスを検出
-    setTimeout(() => {
-      detectAndApplyTypePrefix(editor);
-    }, 0);
-  });
-
   colorButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       applyColor(btn.dataset.color);
