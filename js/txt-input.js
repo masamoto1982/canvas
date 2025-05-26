@@ -134,7 +134,10 @@ const insertAtCursor = (text) => {
   insertColoredText(text, currentActiveColor);
   if (isMobileDevice()) {
     showTextSection();
-    focusWithoutKeyboard(editor);
+    // d2d-inputからの入力の場合はキーボードを表示しない
+    if (!editor.isKeyboardMode) {
+      focusWithoutKeyboard(editor);
+    }
   } else {
     focusOnInput();
   }
@@ -214,8 +217,56 @@ const handleDeleteAction = (deleteToken = false) => {
 const setupEditorEvents = () => {
   const editor = elements.input;
   if (!editor) return;
-  editor.addEventListener('touchstart', (e) => {});
-  editor.addEventListener('focus', () => {});
+  
+  // モバイルでの入力モード制御
+  if (isMobileDevice()) {
+    // エディタがフォーカスされたときの処理
+    editor.addEventListener('focus', (e) => {
+      // 明示的にtxt-inputをタップした場合のみキーボードを表示
+      if (e.isTrusted && e.target === editor) {
+        focusWithKeyboard(editor);
+      }
+    });
+    
+    // Androidキーボードからの入力を検出
+    editor.addEventListener('beforeinput', (e) => {
+      if (e.inputType === 'insertText' || e.inputType === 'insertCompositionText') {
+        // キーボードからの入力を処理
+        const pendingText = e.data;
+        if (pendingText) {
+          e.preventDefault();
+          
+          // 現在のアクティブな色を取得
+          const currentColor = getCurrentColor();
+          
+          // テキストを1文字ずつ処理
+          for (const char of pendingText) {
+            insertColoredText(char, currentColor);
+          }
+          
+          // 入力後に型プレフィックスをチェック
+          setTimeout(() => {
+            detectAndApplyTypePrefix(editor);
+          }, 0);
+        }
+      }
+    });
+    
+    // タッチイベントでキーボード表示を制御
+    editor.addEventListener('touchstart', (e) => {
+      if (e.target === editor) {
+        editor.removeAttribute('inputmode');
+        editor.isKeyboardMode = true;
+      }
+    });
+  }
+  
+  // デスクトップでもフォーカス時の処理
+  editor.addEventListener('focus', () => {
+    if (!isMobileDevice()) {
+      focusOnInput();
+    }
+  });
 };
 
 function initRichTextEditor() {

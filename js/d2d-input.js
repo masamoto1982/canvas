@@ -169,14 +169,25 @@ const detectDot = (x, y) => { //
   });
 };
 
-const handlePointerDown = (e, el) => { //
-  // Needs elements, drawState, isMobileDevice, showTextSection, insertAtCursor, resetDrawState, clearCanvas, CONFIG, addDetectedDot
+const handlePointerDown = (e, el) => {
   if (!e || !el) return;
+  
+  // d2d-input操作時はキーボードを確実に非表示
+  if (document.activeElement === elements.input) {
+    elements.input.blur();
+    elements.input.setAttribute('inputmode', 'none');
+    elements.input.isKeyboardMode = false;
+  }
+  
+  // 他の要素のフォーカスも解除
   if (document.activeElement && document.activeElement !== elements.input) {
     document.activeElement.blur();
   }
+  
+  // キーボードが表示されないようにする
   if (e.target !== elements.input && e.target !== elements.output) {
     if (e.preventDefault) e.preventDefault();
+    e.stopPropagation();
   }
   drawState.currentTouchId = e.pointerId;
   drawState.pointerStartX = e.clientX;
