@@ -172,10 +172,9 @@ const detectDot = (x, y) => { //
 const handlePointerDown = (e, el) => {
   if (!e || !el) return;
   
-  // d2d-input操作時はキーボードを確実に非表示
-  if (document.activeElement === elements.input) {
+  // d2d-input操作時はキーボードを非表示
+  if (document.activeElement === elements.input && elements.input.isKeyboardMode) {
     elements.input.blur();
-    elements.input.setAttribute('inputmode', 'none');
     elements.input.isKeyboardMode = false;
   }
   
@@ -184,10 +183,9 @@ const handlePointerDown = (e, el) => {
     document.activeElement.blur();
   }
   
-  // キーボードが表示されないようにする
+  // デフォルト動作を防ぐ
   if (e.target !== elements.input && e.target !== elements.output) {
     if (e.preventDefault) e.preventDefault();
-    e.stopPropagation();
   }
   drawState.currentTouchId = e.pointerId;
   drawState.pointerStartX = e.clientX;

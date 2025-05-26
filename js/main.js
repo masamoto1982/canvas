@@ -143,18 +143,17 @@ const initResponsiveLayout = () => {
   const checkLayout = () => {
     resizeCanvas();
     if (isMobileDevice()) {
-      // モバイルモードの初期設定
-      if (elements.input) {
-        // デフォルトではキーボードを表示しない
-        elements.input.setAttribute('inputmode', 'none');
-        elements.input.isKeyboardMode = false;
-      }
-      
       if (elements.textSection && elements.outputSection) {
         elements.outputSection.classList.add('hide');
         elements.textSection.classList.remove('hide');
       }
       
+      // キーボードの初期設定
+      if (elements.input) {
+        elements.input.isKeyboardMode = false;
+      }
+      
+      // d2d-areaのキーボード防止設定
       const preventKeyboard = () => {
         if (elements.d2dArea) {
           elements.d2dArea.addEventListener('touchstart', (e) => {
@@ -163,14 +162,7 @@ const initResponsiveLayout = () => {
             }
             e.preventDefault();
           }, { passive: false, capture: true });
-          ['touchstart', 'mousedown', 'pointerdown', 'MSPointerDown'].forEach(eventType => {
-            elements.d2dArea.addEventListener(eventType, (e) => {
-              if (e.target !== elements.input) {
-                e.preventDefault();
-                if (document.activeElement) document.activeElement.blur();
-              }
-            }, { passive: false, capture: true });
-          });
+          
           elements.d2dArea.addEventListener('focus', () => {
             if (elements.d2dArea) elements.d2dArea.blur();
           }, false);
@@ -182,7 +174,6 @@ const initResponsiveLayout = () => {
       if (elements.textSection) elements.textSection.classList.remove('hide');
     }
     
-    // 初期フォーカス設定
     if (isMobileDevice()) {
       focusWithoutKeyboard(elements.input);
     } else {

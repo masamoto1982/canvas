@@ -103,54 +103,35 @@ const isMobileDevice = () => {
   return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android/i.test(navigator.userAgent);
 };
 
-
-// focusWithoutKeyboard関数を改善（既存関数の置き換え）
+// focusWithoutKeyboard関数を簡略化
 const focusWithoutKeyboard = (element) => {
   if (!element) return;
-  
-  // Androidキーボードを表示させないための処理
-  element.setAttribute('inputmode', 'none');
-  element.setAttribute('readonly', 'readonly');
   
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
   
-  // フォーカスを設定
+  // 一時的にreadonlyにしてフォーカス
+  element.setAttribute('readonly', 'readonly');
   element.focus();
   
-  // 即座に読み取り専用を解除（編集は可能にする）
+  // すぐにreadonlyを解除
   setTimeout(() => {
     element.removeAttribute('readonly');
-    // contenteditable要素の場合は編集可能にする
-    if (element.getAttribute('contenteditable') === 'true') {
-      element.setAttribute('contenteditable', 'true');
-    }
-  }, 50);
+  }, 10);
   
-  // スクロール位置を維持
   window.scrollTo(scrollX, scrollY);
 };
 
-// 新しい関数: キーボードを表示してフォーカス（新規追加）
+// focusWithKeyboard関数を簡略化
 const focusWithKeyboard = (element) => {
   if (!element) return;
   
-  // Androidキーボードを表示させるための処理
+  // キーボードを表示するための設定
   element.removeAttribute('inputmode');
   element.removeAttribute('readonly');
-  element.setAttribute('contenteditable', 'true');
-  
   element.focus();
-  
-  // Androidでは明示的にキーボードを要求
-  if (isMobileDevice()) {
-    // 少し遅延を入れてから再度フォーカス
-    setTimeout(() => {
-      element.click();
-      element.focus();
-    }, 100);
-  }
 };
+
 
 const focusOnInput = () => {
   const editor = elements.input;

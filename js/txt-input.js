@@ -230,40 +230,20 @@ const setupEditorEvents = () => {
   
   // モバイルでの入力モード制御
   if (isMobileDevice()) {
-    // タッチイベントでキーボード表示を制御
-    editor.addEventListener('touchstart', (e) => {
-      if (e.target === editor) {
-        // タッチされたらキーボードモードを有効化
+    // クリックでキーボード表示
+    editor.addEventListener('click', (e) => {
+      if (e.isTrusted) {
         editor.isKeyboardMode = true;
-        editor.removeAttribute('inputmode');
-        setTimeout(() => {
-          focusWithKeyboard(editor);
-        }, 100);
+        focusWithKeyboard(editor);
       }
     });
     
-    // Androidキーボードからの入力を検出
-    editor.addEventListener('beforeinput', (e) => {
-      if (e.inputType === 'insertText' || e.inputType === 'insertCompositionText') {
-        // キーボードからの入力を処理
-        const pendingText = e.data;
-        if (pendingText) {
-          e.preventDefault();
-          
-          // 現在のアクティブな色を取得
-          const currentColor = getCurrentColor();
-          
-          // テキストを1文字ずつ処理
-          for (const char of pendingText) {
-            insertColoredText(char, currentColor);
-          }
-          
-          // 入力後に型プレフィックスをチェック
-          setTimeout(() => {
-            detectAndApplyTypePrefix(editor);
-          }, 0);
-        }
-      }
+    // Androidキーボードからの入力を処理
+    editor.addEventListener('input', (e) => {
+      // 入力後に型プレフィックスをチェック
+      setTimeout(() => {
+        detectAndApplyTypePrefix(editor);
+      }, 0);
     });
   }
 };
