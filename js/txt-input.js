@@ -8,6 +8,15 @@ const typePrefix = {
   'symbol': 'cyan'
 };
 
+// グローバル変数として現在の色を管理
+let currentActiveColor = 'cyan';
+
+// getCurrentColor関数を最初に定義
+const getCurrentColor = () => {
+  const activeColorBtn = document.querySelector('.color-btn.active');
+  return activeColorBtn ? activeColorBtn.dataset.color : 'cyan';
+};
+
 // 既存の関数の順序を修正（executeCodeを先に定義）
 const executeCode = () => {
   const editor = elements.input;
@@ -90,6 +99,7 @@ const detectAndApplyTypePrefix = (editor) => {
         btn.classList.toggle('active', btn.dataset.color === color);
       });
       editor.style.caretColor = colorCodes[color];
+      currentActiveColor = color;
     }
   }
 };
@@ -130,8 +140,8 @@ const insertNewline = () => {
 const insertAtCursor = (text) => {
   const editor = elements.input;
   if (!editor) return;
-  const currentActiveColor = document.querySelector('.color-btn.active')?.dataset.color || 'cyan';
-  insertColoredText(text, currentActiveColor);
+  const color = getCurrentColor();
+  insertColoredText(text, color);
   if (isMobileDevice()) {
     showTextSection();
     // d2d-inputからの入力の場合はキーボードを表示しない
@@ -220,11 +230,15 @@ const setupEditorEvents = () => {
   
   // モバイルでの入力モード制御
   if (isMobileDevice()) {
-    // エディタがフォーカスされたときの処理
-    editor.addEventListener('focus', (e) => {
-      // 明示的にtxt-inputをタップした場合のみキーボードを表示
-      if (e.isTrusted && e.target === editor) {
-        focusWithKeyboard(editor);
+    // タッチイベントでキーボード表示を制御
+    editor.addEventListener('touchstart', (e) => {
+      if (e.target === editor) {
+        // タッチされたらキーボードモードを有効化
+        editor.isKeyboardMode = true;
+        editor.removeAttribute('inputmode');
+        setTimeout(() => {
+          focusWithKeyboard(editor);
+        }, 100);
       }
     });
     
@@ -251,22 +265,7 @@ const setupEditorEvents = () => {
         }
       }
     });
-    
-    // タッチイベントでキーボード表示を制御
-    editor.addEventListener('touchstart', (e) => {
-      if (e.target === editor) {
-        editor.removeAttribute('inputmode');
-        editor.isKeyboardMode = true;
-      }
-    });
   }
-  
-  // デスクトップでもフォーカス時の処理
-  editor.addEventListener('focus', () => {
-    if (!isMobileDevice()) {
-      focusOnInput();
-    }
-  });
 };
 
 function initRichTextEditor() {
@@ -274,15 +273,14 @@ function initRichTextEditor() {
   if (!editor) return;
 
   setupEditorEvents();
-  let currentColor = 'cyan';
   const colorButtons = document.querySelectorAll('.color-btn');
-  editor.style.caretColor = colorCodes[currentColor] || currentColor;
+  editor.style.caretColor = colorCodes[currentActiveColor] || currentActiveColor;
 
   const cyanBtn = document.querySelector('#color-cyan');
   if (cyanBtn) cyanBtn.classList.add('active');
 
   const applyColor = (color) => {
-    currentColor = color;
+    currentActiveColor = color;
     colorButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.color === color);
     });
@@ -333,7 +331,7 @@ function initRichTextEditor() {
     }
     if (e.key.length === 1) {
       e.preventDefault();
-      insertColoredText(e.key, currentColor);
+      insertColoredText(e.key, currentActiveColor);
       // キー入力後に型プレフィックスをチェック
       setTimeout(() => {
         detectAndApplyTypePrefix(editor);
@@ -342,7 +340,7 @@ function initRichTextEditor() {
     }
     if (e.key === 'Tab') {
       e.preventDefault();
-      insertColoredText('    ', currentColor);
+      insertColoredText('    ', currentActiveColor);
       return;
     }
   });
@@ -358,15 +356,15 @@ function initRichTextEditor() {
       
       const tokens = line.split(/\s+/);
       tokens.forEach((token, tokenIndex) => {
-        if (tokenIndex > 0) insertColoredText(' ', currentColor);
+        if (tokenIndex > 0) insertColoredText(' ', currentActiveColor);
         
         const prefixMatch = token.match(/^(number|boolean|string|symbol):(.+)$/);
         if (prefixMatch) {
           const [, type, value] = prefixMatch;
-          const color = typePrefix[type] || currentColor;
+          const color = typePrefix[type] || currentActiveColor;
           insertColoredText(value, color);
         } else {
-          insertColoredText(token, currentColor);
+          insertColoredText(token, currentActiveColor);
         }
       });
     });
