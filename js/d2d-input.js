@@ -80,9 +80,7 @@ const showRecognitionFeedback = (character) => { //
   setTimeout(() => fb.remove(), 800);
 };
 
-const endDrawing = () => { //
-  // Needs drawState, CONFIG, recognizeLetterWithErrorCorrection, insertAtCursor,
-  // showRecognitionFeedback, resetDrawState, clearCanvas, elements (for activeElement check)
+const endDrawing = () => {
   if (!drawState.isActive) return;
   const now = Date.now();
   if (drawState.currentStrokeDetected) {
@@ -91,6 +89,10 @@ const endDrawing = () => { //
       if (drawState.detectedDots.size > 0 && drawState.totalValue > 1) {
         const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
         if (rec) {
+          // d2d-input操作時は必ずtxt-inputを表示
+          if (isMobileDevice()) {
+            showTextSection();
+          }
           insertAtCursor(rec);
           showRecognitionFeedback(rec);
           if (document.activeElement && document.activeElement !== elements.input) {

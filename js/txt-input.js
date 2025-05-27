@@ -11,24 +11,43 @@ const typePrefix = {
 // グローバル変数として現在の色を管理
 let currentActiveColor = 'cyan';
 
-// 既存の関数の順序を修正（executeCodeを先に定義）
 const executeCode = () => {
+  // 実行開始を通知
+  window.dispatchEvent(new Event('execute-code-start'));
+  
   const editor = elements.input;
   if (!editor) return;
+  
+  // まずキーボードとフォーカスを確実に解除
+  if (isMobileDevice()) {
+    editor.blur();
+    editor.isKeyboardMode = false;
+    
+    // Androidキーボードを強制的に閉じる
+    if (document.activeElement === editor) {
+      document.activeElement.blur();
+    }
+  }
+  
   const result = interpreter.execute(editor);
   if (elements.output) {
     elements.output.value = result;
     if (!result.startsWith('Error:')) {
       elements.output.classList.add('executed');
       setTimeout(() => elements.output.classList.remove('executed'), 300);
-      editor.innerHTML = ''; // Clear editor on successful execution
+      editor.innerHTML = '';
     }
   }
-  showOutputSection();
+  
+  // モバイルモードでは確実にoutputセクションを表示
   if (isMobileDevice()) {
-    focusWithoutKeyboard(editor);
-  } else {
-    focusOnInput();
+    // キーボードが閉じるのを待ってから画面切り替え
+    setTimeout(() => {
+      if (elements.textSection && elements.outputSection) {
+        elements.textSection.classList.add('hide');
+        elements.outputSection.classList.remove('hide');
+      }
+    }, 150);
   }
 };
 
@@ -222,26 +241,49 @@ const setupEditorEvents = () => {
   const editor = elements.input;
   if (!editor) return;
   
-  // モバイルでもデスクトップでも同じ処理
-  editor.addEventListener('click', (e) => {
-    if (e.isTrusted && isMobileDevice()) {
-      editor.isKeyboardMode = true;
-      focusWithKeyboard(editor);
-    }
-  });
+  // 実行後フラグを追加
+  let justExecuted = false;
   
-  // 入力前にカラーを設定
-  editor.addEventListener('beforeinput', (e) => {
-    // カラーを確実に設定
-    document.execCommand('styleWithCSS', false, true);
-    document.execCommand('foreColor', false, colorCodes[currentActiveColor]);
-  });
+  // モバイルでの入力モード制御
+  if (isMobileDevice()) {
+    // クリックでキーボード表示
+    editor.addEventListener('click', (e) => {
+      if (e.isTrusted && !justExecuted) {
+        editor.isKeyboardMode = true;
+        focusWithKeyboard(editor);
+      }
+      justExecuted = false;
+    });
+    
+    // フォーカスイベントの制御
+    editor.addEventListener('focus', (e) => {
+      // 実行直後はtxt-inputを表示しない
+      if (justExecuted) {
+        e.preventDefault();
+        editor.blur();
+        justExecuted = false;
+        return;
+      }
+      
+      // outputが表示されている場合は、フォーカスを防ぐ
+      if (elements.outputSection && !elements.outputSection.classList.contains('hide')) {
+        e.preventDefault();
+        editor.blur();
+        return;
+      }
+    });
+    
+    // Androidキーボードからの入力を処理
+    editor.addEventListener('input', (e) => {
+      setTimeout(() => {
+        detectAndApplyTypePrefix(editor);
+      }, 0);
+    });
+  }
   
-  // 入力後に型プレフィックスをチェック
-  editor.addEventListener('input', (e) => {
-    setTimeout(() => {
-      detectAndApplyTypePrefix(editor);
-    }, 0);
+  // executeCodeを呼ぶ前にフラグを設定
+  window.addEventListener('execute-code-start', () => {
+    justExecuted = true;
   });
 };
 

@@ -62,10 +62,12 @@ const setupSpecialButtonListeners = () => { //
   }
 };
 
-const setupExecuteButtonListener = () => { //
-  // Needs elements, executeCode (from textEditor.js)
+const setupExecuteButtonListener = () => {
   if (elements.executeButton) {
-    elements.executeButton.addEventListener('click', executeCode);
+    elements.executeButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      executeCode();
+    });
   }
 };
 
@@ -186,7 +188,7 @@ const initResponsiveLayout = () => {
   checkLayout();
 };
 
-window.addEventListener('DOMContentLoaded', () => { //
+window.addEventListener('DOMContentLoaded', () => {
   // Initialize elements object
   elements.dotGrid = document.getElementById('dot-grid');
   elements.specialRow = document.getElementById('special-row');
@@ -200,33 +202,40 @@ window.addEventListener('DOMContentLoaded', () => { //
   elements.textSection = document.getElementById('text-section');
 
   console.log("DOM Content Loaded");
-  console.log("d2d-input element:", elements.d2dArea); //
+  console.log("d2d-input element:", elements.d2dArea);
 
   if (elements.d2dArea) {
-    console.log("Initializing d2d-input"); //
-    elements.d2dArea.setAttribute('tabindex', '-1'); //
-    elements.d2dArea.setAttribute('aria-hidden', 'true'); //
-    elements.d2dArea.setAttribute('unselectable', 'on'); //
-    elements.d2dArea.setAttribute('onselectstart', 'return false;'); //
-    elements.d2dArea.setAttribute('onmousedown', 'return false;'); //
-    if (isMobileDevice()) { // Needs isMobileDevice
-      elements.d2dArea.setAttribute('inputmode', 'none'); //
-      elements.d2dArea.addEventListener('focus', () => { //
-        if (elements.d2dArea) elements.d2dArea.blur(); //
+    console.log("Initializing d2d-input");
+    elements.d2dArea.setAttribute('tabindex', '-1');
+    elements.d2dArea.setAttribute('aria-hidden', 'true');
+    elements.d2dArea.setAttribute('unselectable', 'on');
+    elements.d2dArea.setAttribute('onselectstart', 'return false;');
+    elements.d2dArea.setAttribute('onmousedown', 'return false;');
+    if (isMobileDevice()) {
+      elements.d2dArea.setAttribute('inputmode', 'none');
+      elements.d2dArea.addEventListener('focus', () => {
+        if (elements.d2dArea) elements.d2dArea.blur();
       }, false);
     }
-    addColorButtonStyles(); // Add styles first
-    initKeypad(); // Needs initKeypad (from d2dInput.js)
-    // resizeCanvas is called within initKeypad and initResponsiveLayout
+    addColorButtonStyles();
+    initKeypad();
   } else {
-    console.error("d2d-input element not found!"); //
+    console.error("d2d-input element not found!");
+  }
+
+  // outputセクションをクリックしたらtxt-inputに戻る（新規追加）
+  if (elements.outputSection && isMobileDevice()) {
+    elements.outputSection.addEventListener('click', (e) => {
+      if (e.target === elements.output) return; // textarea自体のクリックは無視
+      showTextSection();
+    });
   }
 
   initResponsiveLayout();
   setupExecuteButtonListener();
   setupClearButtonListener();
   setupKeyboardHandlers();
-  initRichTextEditor(); // Needs initRichTextEditor (from textEditor.js)
-  setupGestureListeners(); // Global gesture listeners
-  setupMultiTouchSupport(); // For d2d area specifically
+  initRichTextEditor();
+  setupGestureListeners();
+  setupMultiTouchSupport();
 });

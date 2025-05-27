@@ -200,6 +200,7 @@ const findLastTextNode = (element) => {
   return null;
 };
 
+// showTextSection関数（既存のコードを確認）
 const showTextSection = () => {
   if (isMobileDevice() && elements.textSection && elements.outputSection) {
     elements.outputSection.classList.add('hide');
@@ -207,6 +208,7 @@ const showTextSection = () => {
   }
 };
 
+// showOutputSection関数（既存のコードを確認）
 const showOutputSection = () => {
   if (isMobileDevice() && elements.textSection && elements.outputSection) {
     elements.textSection.classList.add('hide');
