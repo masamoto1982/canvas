@@ -467,7 +467,7 @@ section:last-child {
     }
 
     .hide {
-        display: none;
+        display: none !important; /* !importantを追加して優先度を上げる */
     }
 
     #d2d-section {
