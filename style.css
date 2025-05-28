@@ -1,4 +1,3 @@
-/* Apply border-box sizing globally */
 *,
 *::before,
 *::after {
@@ -14,7 +13,6 @@ body {
     font-family: sans-serif;
 }
 
-/* Main layout container */
 article {
     width: 100%;
     max-width: 800px;
@@ -45,7 +43,6 @@ section:last-child {
     margin-bottom: 0;
 }
 
-/* Style for textarea and input */
 #output,
 #txt-input {
     width: 100%;
@@ -59,7 +56,7 @@ section:last-child {
 #output {
     resize: vertical;
     min-height: 80px;
-    height: 500px; /* Desktop default height */
+    height: 500px;
     max-height: 300px;
     background-color: #f8f8f8;
     transition: background-color 0.3s;
@@ -69,7 +66,7 @@ section:last-child {
 #txt-input {
     resize: vertical;
     min-height: 80px;
-    height: 500px; /* Desktop default height */
+    height: 500px;
     max-height: 500px;
     transition: background-color 0.3s;
     overflow-y: auto;
@@ -81,16 +78,14 @@ section:last-child {
     transition: background-color 0.3s;
 }
 
-/* Input areas container */
 #input-container {
     display: flex;
     flex-direction: column;
 }
 
-/* Rich text editor styles */
 #txt-input.editor {
     min-height: 80px;
-    height: 500px; /* Desktop default height */
+    height: 500px;
     max-height: 300px;
     border: 1px solid #cccccc;
     border-radius: 4px;
@@ -104,7 +99,6 @@ section:last-child {
     outline: none;
 }
 
-/* Color buttons container */
 .color-buttons {
     display: flex;
     justify-content: center;
@@ -112,13 +106,17 @@ section:last-child {
     margin: 10px 0;
 }
 
+/* 文字色切り替えボタンの共通スタイル */
 .color-btn {
     padding: 8px 12px;
-    border: none;
+    /* border: none; */ /* 型に応じた枠線を設定するため変更 */
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s;
-    background-color: #f0f0f0;
+    background-color: #ffffff; /* 背景色を白に変更 */
+    border-radius: 0; /* 角の丸みをなくす */
+    border-width: 1px; /* 枠線の太さを指定 */
+    border-style: solid; /* 枠線の種類を指定 */
 }
 
 .color-btn.active {
@@ -126,45 +124,48 @@ section:last-child {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-#color-red, #color-red.active {
-    background-color: #fff0f0;
-    color: #FF4B00;
-    border: 1px solid #ffcdd2;
+/* 赤色の型ボタン (例: boolean) */
+#color-red {
+    color: #FF4B00; /* 文字色を型に応じた色に */
+    border-color: #FF4B00; /* 枠線を型に応じた色に */
 }
-
 
 #color-red.active {
-    background-color: #ffcdd2;
+    background-color: #ffebee; /* アクティブ時の背景色はごく薄い赤 */
+    /* border-color: #e53935; */ /* 必要であればアクティブ時の枠線色を濃くする */
 }
 
-#color-green, #color-green.active {
-    background-color: #f0fff7;
+/* 緑色の型ボタン (例: number) */
+#color-green {
     color: #03AF7A;
-    border: 1px solid #c8e6c9;
+    border-color: #03AF7A;
 }
 
 #color-green.active {
-    background-color: #c8e6c9;
+    background-color: #e8f5e9; /* アクティブ時の背景色はごく薄い緑 */
+    /* border-color: #008e60; */
 }
 
-#color-blue, #color-blue.active {
-    background-color: #f0f8ff;
+/* 青色の型ボタン (例: string) */
+#color-blue {
     color: #005AFF;
-    border: 1px solid #bbdefb;
+    border-color: #005AFF;
 }
 
 #color-blue.active {
-    background-color: #bbdefb;
+    background-color: #e3f2fd; /* アクティブ時の背景色はごく薄い青 */
+    /* border-color: #0044cc; */
 }
 
-#color-cyan, #color-cyan.active {
-    background-color: #f0faff;
-    color: #4DC4FF;
-    border: 1px solid #b3e5fc;
+/* 黄色の型ボタン (例: symbol - 旧cyanから変更を想定) */
+#color-yellow { /* IDを #color-cyan から #color-yellow に変更 */
+    color: #FFC107; /* 仮の黄色 (Amber) */
+    border-color: #FFC107; /* 仮の黄色 (Amber) */
 }
 
-#color-cyan.active {
-    background-color: #b3e5fc;
+#color-yellow.active {
+    background-color: #fff9c4; /* アクティブ時の背景色はごく薄い黄色 */
+    /* border-color: #f9a825; */
 }
 
 #upper-half {
@@ -281,7 +282,7 @@ section:last-child {
 }
 
 .special-button:active {
-    background-color: #9ca3af;
+    background-color: #9ca3af; /* これは汎用的なspecial-buttonのactiveなので維持 */
 }
 
 .special-button.long-pressed {
@@ -328,14 +329,15 @@ section:last-child {
     width: 100%;
 }
 
+/* 初期化ボタンの新しいスタイル */
 #clear-button {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #cccccc; /* 初期化ボタンの色変更 */
-    color: white;
-    border: none;
-    border-radius: 4px;
+    background-color: #FF4B00; /* 背景色を赤に */
+    color: white; /* 文字色を白に */
+    border: none; /* 枠線なし（お好みで調整可） */
+    border-radius: 4px; /* 角の丸みを維持 */
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
@@ -343,21 +345,22 @@ section:last-child {
 }
 
 #clear-button:hover {
-    background-color: ; /* ホバー時は少し暗く */
+    background-color: #e04300; /* 少し濃い赤 */
 }
 
 #clear-button:active {
-    background-color: ; /* アクティブ時はさらに暗く */
+    background-color: #c23a00; /* さらに濃い赤 */
 }
 
+/* 実行ボタンの新しいスタイル */
 #execute-button {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #cccccc; /* 実行ボタンの色変更 */
-    color: white;
-    border: none;
-    border-radius: 4px;
+    background-color: #03AF7A; /* 背景色を緑に */
+    color: white; /* 文字色を白に */
+    border: none; /* 枠線なし（お好みで調整可） */
+    border-radius: 4px; /* 角の丸みを維持 */
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
@@ -365,14 +368,13 @@ section:last-child {
 }
 
 #execute-button:hover {
-    background-color: ; /* ホバー時は少し暗く */
+    background-color: #028e63; /* 少し濃い緑 */
 }
 
 #execute-button:active {
-    background-color: ; /* アクティブ時はさらに暗く */
+    background-color: #017551; /* さらに濃い緑 */
 }
 
-/* 認識フィードバックのスタイル */
 .recognition-feedback {
     position: absolute;
     top: 50%;
@@ -380,7 +382,7 @@ section:last-child {
     transform: translate(-50%, -50%);
     background-color: rgba(255, 255, 255, 0.9);
     border-radius: 50%;
-    width: 120px; 
+    width: 120px;
     height: 120px;
     display: flex;
     align-items: center;
@@ -393,7 +395,6 @@ section:last-child {
     z-index: 100;
 }
 
-/* フェードアウトアニメーション */
 @keyframes fadeOut {
     0% {
         opacity: 1;
@@ -412,7 +413,6 @@ section:last-child {
     100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
 }
 
-/* ベースのスタイル（デスクトップ向け） */
 #mobile-container {
     display: block;
 }
@@ -423,59 +423,53 @@ section:last-child {
 }
 
 .hide {
-    display: block;
+    display: block; /* 初期表示は block (JSで制御される想定) */
 }
 
 #output,
 #txt-input {
-     height: 200px;
+    height: 200px; /* デフォルトの高さを少し調整 */
 }
 
-/* モバイル向けの上書きスタイル */
 @media (max-width: 768px) {
     #mobile-container {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 80px);
+        height: calc(100vh - 80px); /* ヘッダー等の高さを考慮したビューポートの高さ */
     }
 
     #upper-half {
-        flex: 1;
+        flex: 1; /* 利用可能なスペースを埋める */
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow: hidden; /* 内容がはみ出た場合にスクロールさせるため */
     }
 
     .input-section,
     .output-section {
-        flex: 1;
+        flex: 1; /* outputとinputが同じ高さになるように */
         transition: transform 0.3s ease;
         width: 100%;
+        display: flex; /* flexbox を使用して内部要素を管理 */
+        flex-direction: column; /* 内部要素を縦に並べる */
     }
-
-    #output,
-    #txt-input {
-        height: 100px;
-    }
-
-    #txt-input {
-        min-height: 6rem;
-    }
-	
-    #txt-input.editor {
-        height: 200px;
+    
+    #txt-input.editor, #output { /* #txt-input を .editor と #output に適用 */
+      flex-grow: 1; /* テキストエリアが利用可能なスペースを埋めるように */
+      min-height: 100px; /* モバイルでの最小高さを指定 */
+      height: auto; /* 具体的な高さ指定をautoにし、flex-growで調整 */
     }
 
     .hide {
-        display: none !important; /* !importantを追加して優先度を上げる */
+        display: none !important;
     }
 
     #d2d-section {
-        height: 30vh;
-        min-height: 300px;
+        height: 30vh; /* d2dセクションの高さ */
+        min-height: 280px; /* d2dセクションの最小高さ（ボタン等が潰れないように） */
     }
 
     body {
-        overflow-x: hidden;
+        overflow-x: hidden; /* 横スクロールを禁止 */
     }
 }
