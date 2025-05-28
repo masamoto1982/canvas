@@ -76,8 +76,8 @@ const interpreter = (() => {
         const tokens = tokenize(editor);
         if (tokens.length === 0) return "Empty input";
         tokens.forEach(token => {
-          if (['+', '-', '*', '/'].includes(token.value) && token.color !== 'green' && token.color !== 'cyan') {
-            throw new Error(`Type Error: Arithmetic operators must be Number type (green) or Symbol type (cyan), found ${token.color} for '${token.value}'`);
+          if (['+', '-', '*', '/'].includes(token.value) && token.color !== 'green' && token.color !== 'red') {
+            throw new Error(`Type Error: Arithmetic operators must be Number type (green) or Symbol type (red), found ${token.color} for '${token.value}'`);
           }
           if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
             if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
@@ -86,11 +86,11 @@ const interpreter = (() => {
                  }
             }
           }
-          if (/^[A-Z][A-Z0-9_]*$/.test(token.value) && token.color !== 'cyan') {
-            throw new Error(`Type Error: Variable names must be Symbol type (cyan), found ${token.color} for '${token.value}'`);
+          if (/^[A-Z][A-Z0-9_]*$/.test(token.value) && token.color !== 'red') {
+            throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
           }
-          if (token.value === '=' && token.color !== 'green' && token.color !== 'cyan') {
-            throw new Error(`Type Error: Assignment operator '=' must be Number type (green) or Symbol type (cyan), found ${token.color}`);
+          if (token.value === '=' && token.color !== 'green' && token.color !== 'red') {
+            throw new Error(`Type Error: Assignment operator '=' must be Number type (green) or Symbol type (red), found ${token.color}`);
           }
         });
         const ast = parse(tokens);
