@@ -270,7 +270,7 @@ function initRichTextEditor() {
       if (e.key === 'r' || e.key === 'R') { e.preventDefault(); applyColor('red'); return; }
       else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); applyColor('blue'); return; }
       else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); applyColor('green'); return; }
-      else if (e.key === 'c' || e.key === 'C') { e.preventDefault(); applyColor('yellow'); return; }
+      else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); applyColor('yellow'); return; }
       return;
     }
     if (e.key.length === 1) {
