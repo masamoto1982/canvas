@@ -1,41 +1,34 @@
-// d2dInput.js
-
-// Potentially export functions like initKeypad, handlePointerDown etc.
-// or make them internal and expose only initKeypad and setupGestureListeners.
-
-const clearCanvas = () => { //
-  const lineCtx = elements.lineCanvas ? elements.lineCanvas.getContext('2d') : null; // Needs elements
-  if (lineCtx && elements.lineCanvas) { // Needs elements
-    lineCtx.clearRect(0, 0, elements.lineCanvas.width, elements.lineCanvas.height); // Needs elements
+const clearCanvas = () => {
+  const lineCtx = elements.lineCanvas ? elements.lineCanvas.getContext('2d') : null;
+  if (lineCtx && elements.lineCanvas) {
+    lineCtx.clearRect(0, 0, elements.lineCanvas.width, elements.lineCanvas.height);
   }
 };
-
-const resetDrawState = (keepActive = false) => { //
-  drawState.isActive = keepActive; // Needs drawState
-  if (drawState.detectedDots.size > 0) { // Needs drawState
-    drawState.detectedDots.forEach(dot => dot.classList.remove('detected')); // Needs drawState
-    drawState.detectedDots.clear(); // Needs drawState
+const resetDrawState = (keepActive = false) => {
+  drawState.isActive = keepActive;
+  if (drawState.detectedDots.size > 0) {
+    drawState.detectedDots.forEach(dot => dot.classList.remove('detected'));
+    drawState.detectedDots.clear();
   }
-  drawState.totalValue = 1; // Needs drawState
-  drawState.currentStrokeDetected = false; // Needs drawState
-  drawState.hasMoved = false; // Needs drawState
-  drawState.isDrawingMode = false; // Needs drawState
-  drawState.detectedDotsList = []; // Needs drawState
-  drawState.lastDetectedDot = null; // Needs drawState
-  drawState.lastDotX = 0; // Needs drawState
-  drawState.lastDotY = 0; // Needs drawState
-  drawState.currentLineColor = null; // Needs drawState
-  if (!keepActive) drawState.lastStrokeTime = 0; // Needs drawState
-  clearTimeout(drawState.strokeTimer); // Needs drawState
-  drawState.strokeTimer = null; // Needs drawState
+  drawState.totalValue = 1;
+  drawState.currentStrokeDetected = false;
+  drawState.hasMoved = false;
+  drawState.isDrawingMode = false;
+  drawState.detectedDotsList = [];
+  drawState.lastDetectedDot = null;
+  drawState.lastDotX = 0;
+  drawState.lastDotY = 0;
+  drawState.currentLineColor = null;
+  if (!keepActive) drawState.lastStrokeTime = 0;
+  clearTimeout(drawState.strokeTimer);
+  drawState.strokeTimer = null;
 };
-
-const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => { //
-  const lineCanvas = elements.lineCanvas; // Needs elements
+const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => {
+  const lineCanvas = elements.lineCanvas;
   if (!lineCanvas) return;
   const ctx = lineCanvas.getContext('2d');
   if (!ctx) return;
-  ctx.strokeStyle = colorCodes[color] || colorCodes['cyan']; // Needs colorCodes
+  ctx.strokeStyle = colorCodes[color] || colorCodes['yellow'];
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -43,9 +36,7 @@ const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => { //
   ctx.lineTo(toX, toY);
   ctx.stroke();
 };
-
-const recognizeLetterWithErrorCorrection = (totalValue) => { //
-  // Needs dotValues, letterPatterns, complexPatterns, getPrimeFactors, findSubsetProductMatches
+const recognizeLetterWithErrorCorrection = (totalValue) => {
   if (letterPatterns[totalValue]) {
     console.log(`完全一致: ${totalValue} → ${letterPatterns[totalValue]}`);
     return letterPatterns[totalValue];
@@ -70,16 +61,14 @@ const recognizeLetterWithErrorCorrection = (totalValue) => { //
   }
   return null;
 };
-
-const showRecognitionFeedback = (character) => { //
-  if (!elements.d2dArea || !character) return; // Needs elements
+const showRecognitionFeedback = (character) => {
+  if (!elements.d2dArea || !character) return;
   const fb = document.createElement('div');
   fb.className = 'recognition-feedback';
   fb.textContent = character;
-  elements.d2dArea.appendChild(fb); // Needs elements
+  elements.d2dArea.appendChild(fb);
   setTimeout(() => fb.remove(), 800);
 };
-
 const endDrawing = () => {
   if (!drawState.isActive) return;
   const now = Date.now();
@@ -89,7 +78,6 @@ const endDrawing = () => {
       if (drawState.detectedDots.size > 0 && drawState.totalValue > 1) {
         const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
         if (rec) {
-          // d2d-input操作時は必ずtxt-inputを表示
           if (isMobileDevice()) {
             showTextSection();
           }
@@ -116,9 +104,7 @@ const endDrawing = () => {
   }
   drawState.lastStrokeTime = now;
 };
-
-const addDetectedDot = (dot) => { //
-  // Needs drawState, elements, getCurrentColor, drawLineBetweenDots, CONFIG
+const addDetectedDot = (dot) => {
   if (!dot || drawState.detectedDots.has(dot)) return;
   dot.classList.add('detected');
   drawState.detectedDots.add(dot);
@@ -148,9 +134,7 @@ const addDetectedDot = (dot) => { //
   clearTimeout(drawState.strokeTimer);
   drawState.strokeTimer = null;
 };
-
-const detectDot = (x, y) => { //
-  // Needs drawState, elements, CONFIG, addDetectedDot
+const detectDot = (x, y) => {
   if (!drawState.isActive || !elements.dotGrid) return;
   const now = Date.now();
   if (now - drawState.lastDetectionTime < CONFIG.sensitivity.debounceTime) return;
@@ -170,22 +154,15 @@ const detectDot = (x, y) => { //
     }
   });
 };
-
 const handlePointerDown = (e, el) => {
   if (!e || !el) return;
-  
-  // d2d-input操作時はキーボードを非表示
   if (document.activeElement === elements.input && elements.input.isKeyboardMode) {
     elements.input.blur();
     elements.input.isKeyboardMode = false;
   }
-  
-  // 他の要素のフォーカスも解除
   if (document.activeElement && document.activeElement !== elements.input) {
     document.activeElement.blur();
   }
-  
-  // デフォルト動作を防ぐ
   if (e.target !== elements.input && e.target !== elements.output) {
     if (e.preventDefault) e.preventDefault();
   }
@@ -198,9 +175,7 @@ const handlePointerDown = (e, el) => {
       el.setPointerCapture(e.pointerId);
     }
   } catch (err) { console.log("Pointer capture not supported or failed:", err); }
-
   if (isMobileDevice()) showTextSection();
-
   const isDot = el.classList.contains('dot');
   clearTimeout(drawState.tapCheckTimer);
   drawState.tapCheckTimer = setTimeout(() => {
@@ -220,7 +195,6 @@ const handlePointerDown = (e, el) => {
     }
     drawState.tapCheckTimer = null;
   }, 200);
-
   if (isDot) {
     const now = Date.now();
     if (!drawState.isActive || now - drawState.lastStrokeTime > CONFIG.timing.multiStrokeTimeout) {
@@ -239,9 +213,7 @@ const handlePointerDown = (e, el) => {
     clearCanvas();
   }
 };
-
-const redrawExistingLines = (currentColor) => { //
-  // Needs drawState, elements, drawLineBetweenDots
+const redrawExistingLines = (currentColor) => {
   if (drawState.detectedDotsList.length <= 1) return;
   const dots = drawState.detectedDotsList;
   for (let i = 1; i < dots.length; i++) {
@@ -256,14 +228,11 @@ const redrawExistingLines = (currentColor) => { //
     drawLineBetweenDots(prevX, prevY, currX, currY, currentColor);
   }
 };
-
-const handlePointerMove = (e) => { //
-  // Needs drawState, CONFIG, elements, getCurrentColor, clearCanvas, redrawExistingLines, detectDot, colorCodes
+const handlePointerMove = (e) => {
   if (!drawState.isActive || e.pointerId !== drawState.currentTouchId) return;
   const dx = e.clientX - drawState.pointerStartX;
   const dy = e.clientY - drawState.pointerStartY;
   const distance = Math.hypot(dx, dy);
-
   if (distance >= CONFIG.sensitivity.minSwipeDistance) {
     if (!drawState.hasMoved) {
       drawState.hasMoved = true;
@@ -282,7 +251,7 @@ const handlePointerMove = (e) => { //
         if (ctx) {
           clearCanvas();
           redrawExistingLines(currentColor);
-          ctx.strokeStyle = colorCodes[currentColor] || colorCodes['cyan'];
+          ctx.strokeStyle = colorCodes[currentColor] || colorCodes['yellow'];
           ctx.lineWidth = 5;
           ctx.lineCap = 'round';
           ctx.beginPath();
@@ -301,9 +270,7 @@ const handlePointerMove = (e) => { //
     detectDot(e.clientX, e.clientY);
   }
 };
-
-const handlePointerUp = (e) => { //
-  // Needs drawState, endDrawing, resetDrawState, clearCanvas, elements
+const handlePointerUp = (e) => {
   if (e.pointerId !== drawState.currentTouchId) return;
   try {
     const el = e.target;
@@ -311,7 +278,6 @@ const handlePointerUp = (e) => { //
       el.releasePointerCapture(e.pointerId);
     }
   } catch (err) { console.log("Error releasing pointer capture:", err); }
-
   if (drawState.tapCheckTimer) {
     clearTimeout(drawState.tapCheckTimer);
     drawState.tapCheckTimer = null;
@@ -332,9 +298,7 @@ const handlePointerUp = (e) => { //
     elements.d2dArea.blur();
   }
 };
-
-const resizeCanvas = () => { //
-  // Needs elements, clearCanvas
+const resizeCanvas = () => {
   const d2dArea = elements.d2dArea;
   const canvas = elements.lineCanvas;
   if (!d2dArea || !canvas) return;
@@ -350,11 +314,7 @@ const resizeCanvas = () => { //
   canvas.style.top = `${pt}px`;
   clearCanvas();
 };
-
-
-function initKeypad() { //
-  // Needs elements, CONFIG, primeValues (from constants.js), updateConfigStyles, resizeCanvas,
-  // setupDotEventListeners, setupSpecialButtonListeners, setupGestureListeners, setupMultiTouchSupport
+function initKeypad() {
   if (!elements.dotGrid || !elements.specialRow) {
     console.error("Required grid elements not found! dotGrid:", elements.dotGrid, "specialRow:", elements.specialRow);
     return;
@@ -363,14 +323,13 @@ function initKeypad() { //
   elements.specialRow.innerHTML = '';
   CONFIG.layout.gridRows = 3;
   CONFIG.layout.gridCols = 3;
-  // primeValues should be dotValues from constants.js
   for (let r = 0; r < CONFIG.layout.gridRows; r++) {
     const row = document.createElement('div');
     row.className = 'dot-row';
     for (let c = 0; c < CONFIG.layout.gridCols; c++) {
       const idx = r * CONFIG.layout.gridCols + c;
-      if (idx >= dotValues.length) continue; // Use dotValues
-      const value = dotValues[idx]; // Use dotValues
+      if (idx >= dotValues.length) continue;
+      const value = dotValues[idx];
       const dot = document.createElement('div');
       dot.className = 'dot';
       dot.dataset.index = idx;
@@ -383,14 +342,12 @@ function initKeypad() { //
     }
     elements.dotGrid.appendChild(row);
   }
-
   const deleteBtn = document.createElement('div');
   deleteBtn.className = 'special-button delete';
   deleteBtn.textContent = '削除';
   deleteBtn.dataset.action = 'delete';
   deleteBtn.title = '削除 (ダブルタップで単語削除)';
   elements.specialRow.appendChild(deleteBtn);
-
   const zeroBtn = document.createElement('div');
   zeroBtn.className = 'dot numeric';
   zeroBtn.textContent = '0';
@@ -398,19 +355,17 @@ function initKeypad() { //
   zeroBtn.dataset.index = 'special_0';
   zeroBtn.dataset.value = '1';
   elements.specialRow.appendChild(zeroBtn);
-
   const spaceBtn = document.createElement('div');
   spaceBtn.className = 'special-button space';
   spaceBtn.textContent = '空白/改行';
   spaceBtn.dataset.action = 'space';
   spaceBtn.title = 'シングルクリック: 空白挿入\nダブルクリック: 改行';
   elements.specialRow.appendChild(spaceBtn);
-
   if (elements.d2dArea) {
     elements.d2dArea.tabIndex = -1;
     elements.d2dArea.setAttribute('inputmode', 'none');
     elements.d2dArea.setAttribute('aria-hidden', 'true');
-    const style = document.createElement('style'); // This style is also in addColorButtonStyles, might consolidate
+    const style = document.createElement('style');
     style.textContent = `
       #d2d-input {
         -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
@@ -420,19 +375,12 @@ function initKeypad() { //
     `;
     document.head.appendChild(style);
   }
-  updateConfigStyles(); // Needs updateConfigStyles
-  resizeCanvas(); // Needs resizeCanvas
-
-  // These setups will be called from main.js or here if kept bundled
+  updateConfigStyles();
+  resizeCanvas();
   setupDotEventListeners();
   setupSpecialButtonListeners();
-  // setupGestureListeners(); // This is usually global, called from main
-  // setupMultiTouchSupport(); // Called from main
 }
-
-// Event listener setups for d2d, might be better in main.js or called from initKeypad
-const setupDotEventListeners = () => { //
-  // Needs elements, handlePointerDown
+const setupDotEventListeners = () => {
   if (!elements.d2dArea) return;
   elements.d2dArea.addEventListener('focus', (e) => {
     if (elements.d2dArea) elements.d2dArea.blur();

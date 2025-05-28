@@ -1,10 +1,4 @@
-// main.js
-// コメント部分を修正（importする場合の例）
-// e.g., import { initKeypad } from './d2d-input.js';
-// import { initRichTextEditor } from './txt-input.js';
-
-const handleSpecialButtonClick = (e, type, actions) => { //
-  // Needs specialButtonState
+const handleSpecialButtonClick = (e, type, actions) => {
   if (e && e.preventDefault) e.preventDefault();
   const now = Date.now();
   if (specialButtonState.clickTarget === type && now - specialButtonState.lastClickTime < specialButtonState.doubleClickDelay) {
@@ -40,12 +34,9 @@ const handleSpecialButtonClick = (e, type, actions) => { //
     }, specialButtonState.doubleClickDelay);
   }
 };
-
-const setupSpecialButtonListeners = () => { //
-  // Needs elements, handleSpecialButtonClick, handleDeleteAction (from textEditor.js), insertAtCursor (from textEditor.js), insertNewline (from textEditor.js)
+const setupSpecialButtonListeners = () => {
   const deleteBtn = elements.specialRow ? elements.specialRow.querySelector('[data-action="delete"]') : null;
   const spaceBtn = elements.specialRow ? elements.specialRow.querySelector('[data-action="space"]') : null;
-
   if (deleteBtn) {
     deleteBtn.addEventListener('pointerup', e => handleSpecialButtonClick(e, 'delete', {
       single: () => handleDeleteAction(false),
@@ -61,7 +52,6 @@ const setupSpecialButtonListeners = () => { //
     spaceBtn.addEventListener('pointerdown', e => e.preventDefault());
   }
 };
-
 const setupExecuteButtonListener = () => {
   if (elements.executeButton) {
     elements.executeButton.addEventListener('click', (e) => {
@@ -70,16 +60,12 @@ const setupExecuteButtonListener = () => {
     });
   }
 };
-
-const setupClearButtonListener = () => { //
-  // Needs elements, clearInput (from textEditor.js)
+const setupClearButtonListener = () => {
   if (elements.clearButton) {
     elements.clearButton.addEventListener('click', clearInput);
   }
 };
-
-const setupKeyboardHandlers = () => { //
-  // Needs elements, handleDeleteAction (from textEditor.js), insertAtCursor (from textEditor.js), executeCode (from textEditor.js)
+const setupKeyboardHandlers = () => {
   document.addEventListener('keydown', (e) => {
     if (e.target === elements.input || e.target === elements.output) return;
     if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -93,20 +79,16 @@ const setupKeyboardHandlers = () => { //
     if (e.key === 'Enter') {
       e.preventDefault();
       if (e.shiftKey) executeCode();
-      else insertAtCursor('\n'); // Or insertNewline() if preferred for global enter
+      else insertAtCursor('\n');
     }
   });
 };
-
-const setupGestureListeners = () => { //
-  // Needs handlePointerMove, handlePointerUp (from d2dInput.js)
+const setupGestureListeners = () => {
   document.addEventListener('pointermove', handlePointerMove, { passive: false });
   document.addEventListener('pointerup', handlePointerUp, { passive: false });
   document.addEventListener('pointercancel', handlePointerUp, { passive: false });
 };
-
-const setupMultiTouchSupport = () => { //
-  // Needs isMobileDevice, elements
+const setupMultiTouchSupport = () => {
   if (isMobileDevice() && elements.d2dArea) {
     elements.d2dArea.addEventListener('touchstart', (e) => {
       e.preventDefault();
@@ -115,32 +97,29 @@ const setupMultiTouchSupport = () => { //
       }
     }, { passive: false });
     elements.d2dArea.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
-    elements.d2dArea.addEventListener('focusin', (e) => { //
-        e.preventDefault(); //
-        if (elements.d2dArea) { //
-            elements.d2dArea.blur(); //
+    elements.d2dArea.addEventListener('focusin', (e) => {
+        e.preventDefault();
+        if (elements.d2dArea) {
+            elements.d2dArea.blur();
         }
-    }, {passive: false}); //
+    }, {passive: false});
   }
 };
-
-
-const addColorButtonStyles = () => { //
+const addColorButtonStyles = () => {
   const styleElem = document.createElement('style');
-  styleElem.textContent = `
-    #color-cyan, #color-cyan.active { background-color: #f0faff; color: #4DC4FF; border: 1px solid #b3e5fc; }
-    #color-cyan.active { background-color: #b3e5fc; }
-    #clear-button { background-color: #cccccc; }
-    #clear-button:hover { background-color: #D49000; }
-    #clear-button:active { background-color: #B37800; }
-    #execute-button { background-color: #cccccc; }
-    #execute-button:hover { background-color: #3AA7E2; }
-    #execute-button:active { background-color: #2A8AC0; }
+ /*  styleElem.textContent = `
+    #color-yellow, #color-cyan.active { background-color: #FFFFFF; color: yellow; border: 1px solid yellow; }
+    #color-yellow.active { background-color: yellow; }
+    #clear-button { background-color: red; }
+    #clear-button:hover { background-color: red; }
+    #clear-button:active { background-color: red; }
+    #execute-button { background-color: green; }
+    #execute-button:hover { background-color: green; }
+    #execute-button:active { background-color: green; }
     #d2d-input { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; touch-action: none; }
-  `; //
+  `; */
   document.head.appendChild(styleElem);
 };
-
 const initResponsiveLayout = () => {
   const checkLayout = () => {
     resizeCanvas();
@@ -149,13 +128,9 @@ const initResponsiveLayout = () => {
         elements.outputSection.classList.add('hide');
         elements.textSection.classList.remove('hide');
       }
-      
-      // キーボードの初期設定
       if (elements.input) {
         elements.input.isKeyboardMode = false;
       }
-      
-      // d2d-areaのキーボード防止設定
       const preventKeyboard = () => {
         if (elements.d2dArea) {
           elements.d2dArea.addEventListener('touchstart', (e) => {
@@ -164,7 +139,6 @@ const initResponsiveLayout = () => {
             }
             e.preventDefault();
           }, { passive: false, capture: true });
-          
           elements.d2dArea.addEventListener('focus', () => {
             if (elements.d2dArea) elements.d2dArea.blur();
           }, false);
@@ -175,21 +149,17 @@ const initResponsiveLayout = () => {
       if (elements.outputSection) elements.outputSection.classList.remove('hide');
       if (elements.textSection) elements.textSection.classList.remove('hide');
     }
-    
     if (isMobileDevice()) {
       focusWithoutKeyboard(elements.input);
     } else {
       focusOnInput();
     }
   };
-  
   window.addEventListener('resize', checkLayout);
   window.addEventListener('orientationchange', checkLayout);
   checkLayout();
 };
-
 window.addEventListener('DOMContentLoaded', () => {
-  // Initialize elements object
   elements.dotGrid = document.getElementById('dot-grid');
   elements.specialRow = document.getElementById('special-row');
   elements.lineCanvas = document.getElementById('line-canvas');
@@ -200,10 +170,8 @@ window.addEventListener('DOMContentLoaded', () => {
   elements.clearButton = document.getElementById('clear-button');
   elements.outputSection = document.getElementById('output-section');
   elements.textSection = document.getElementById('text-section');
-
   console.log("DOM Content Loaded");
   console.log("d2d-input element:", elements.d2dArea);
-
   if (elements.d2dArea) {
     console.log("Initializing d2d-input");
     elements.d2dArea.setAttribute('tabindex', '-1');
@@ -222,15 +190,12 @@ window.addEventListener('DOMContentLoaded', () => {
   } else {
     console.error("d2d-input element not found!");
   }
-
-  // outputセクションをクリックしたらtxt-inputに戻る（新規追加）
   if (elements.outputSection && isMobileDevice()) {
     elements.outputSection.addEventListener('click', (e) => {
-      if (e.target === elements.output) return; // textarea自体のクリックは無視
+      if (e.target === elements.output) return;
       showTextSection();
     });
   }
-
   initResponsiveLayout();
   setupExecuteButtonListener();
   setupClearButtonListener();

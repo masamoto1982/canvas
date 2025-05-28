@@ -1,11 +1,3 @@
-// utils.js
-
-// Potentially export each function
-// export const rgbToColorName = (rgb) => { ... };
-// export const getCurrentColor = () => { ... };
-// export const getPrimeFactors = (num) => { ... };
-// etc.
-
 const rgbToColorName = (rgb) => {
   const exactColors = {
     '#FF4B00': 'red',
@@ -36,14 +28,10 @@ const rgbToColorName = (rgb) => {
   else if (r < 150 && g > 150 && b > 200) return 'cyan';
   return 'cyan';
 };
-
-
 const getCurrentColor = () => {
   const activeColorBtn = document.querySelector('.color-btn.active');
   return activeColorBtn ? activeColorBtn.dataset.color : 'cyan';
 };
-
-// 型から色を取得する新しい関数
 const getColorFromType = (type) => {
   const typeToColor = {
     [Types.NUMBER]: 'green',
@@ -53,13 +41,9 @@ const getColorFromType = (type) => {
   };
   return typeToColor[type] || 'cyan';
 };
-
-// 色から型を取得する新しい関数
 const getTypeFromColor = (color) => {
   return ColorTypes[color] || Types.SYMBOL;
 };
-
-
 const getPrimeFactors = (num) => {
   const factors = [];
   let divisor = 2;
@@ -76,7 +60,6 @@ const getPrimeFactors = (num) => {
   }
   return factors;
 };
-
 const findSubsetProductMatches = (factors, dotValues) => {
   const candidates = [];
   const maxSubsets = Math.min(10, Math.pow(2, factors.length));
@@ -98,47 +81,31 @@ const findSubsetProductMatches = (factors, dotValues) => {
   }
   return candidates.sort((a, b) => a.distance - b.distance);
 };
-
 const isMobileDevice = () => {
   return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android/i.test(navigator.userAgent);
 };
-
-// focusWithoutKeyboard関数を簡略化
 const focusWithoutKeyboard = (element) => {
   if (!element) return;
-  
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
-  
-  // 一時的にreadonlyにしてフォーカス
   element.setAttribute('readonly', 'readonly');
   element.focus();
-  
-  // すぐにreadonlyを解除
   setTimeout(() => {
     element.removeAttribute('readonly');
   }, 10);
-  
   window.scrollTo(scrollX, scrollY);
 };
-
-// focusWithKeyboard関数を簡略化
 const focusWithKeyboard = (element) => {
   if (!element) return;
-  
-  // キーボードを表示するための設定
   element.removeAttribute('inputmode');
   element.removeAttribute('readonly');
   element.focus();
 };
-
-
 const focusOnInput = () => {
   const editor = elements.input;
   if (!editor) return;
   editor.focus();
 };
-
 const getCursorPosition = (element) => {
   const selection = window.getSelection();
   if (!selection.rangeCount) return 0;
@@ -148,7 +115,6 @@ const getCursorPosition = (element) => {
   preCaretRange.setEnd(range.endContainer, range.endOffset);
   return preCaretRange.toString().length;
 };
-
 const setCursorPosition = (element, position) => {
   let charIndex = 0;
   let foundPosition = false;
@@ -190,7 +156,6 @@ const setCursorPosition = (element, position) => {
     selection.addRange(range);
   }
 };
-
 const findLastTextNode = (element) => {
   if (element.nodeType === Node.TEXT_NODE) return element;
   for (let i = element.childNodes.length - 1; i >= 0; i--) {
@@ -199,23 +164,18 @@ const findLastTextNode = (element) => {
   }
   return null;
 };
-
-// showTextSection関数（既存のコードを確認）
 const showTextSection = () => {
   if (isMobileDevice() && elements.textSection && elements.outputSection) {
     elements.outputSection.classList.add('hide');
     elements.textSection.classList.remove('hide');
   }
 };
-
-// showOutputSection関数（既存のコードを確認）
 const showOutputSection = () => {
   if (isMobileDevice() && elements.textSection && elements.outputSection) {
     elements.textSection.classList.add('hide');
     elements.outputSection.classList.remove('hide');
   }
 };
-
 const updateConfigStyles = () => {
   const existing = document.getElementById('dynamic-config-styles');
   if (existing) existing.remove();

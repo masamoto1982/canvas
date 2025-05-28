@@ -1,14 +1,8 @@
-// interpreter.js
-
-// Potentially export interpreter
-// export const interpreter = (() => { ... })();
-
-const interpreter = (() => { //
+const interpreter = (() => {
   const environment = { variables: {}, functions: {} };
-
   const evaluate = (ast, env = environment) => {
     if (!ast) return null;
-    if (ast.type === Types.NUMBER || ast.type === Types.BOOLEAN || ast.type === Types.STRING) { // Needs Types
+    if (ast.type === Types.NUMBER || ast.type === Types.BOOLEAN || ast.type === Types.STRING) {
       return ast.value;
     }
     if (ast.type === 'variable') {
@@ -26,7 +20,7 @@ const interpreter = (() => { //
       const left = evaluate(ast.left, env);
       const right = evaluate(ast.right, env);
       if (['+', '-', '*', '/'].includes(ast.operator)) {
-        if (!Fraction.isValidNumber(left) || !Fraction.isValidNumber(right)) { // Needs Fraction
+        if (!Fraction.isValidNumber(left) || !Fraction.isValidNumber(right)) {
           throw new Error(`Type Error: Operator '${ast.operator}' requires Number type (green) operands`);
         }
         switch (ast.operator) {
@@ -39,10 +33,10 @@ const interpreter = (() => { //
         }
       }
       if (['>', '>=', '=='].includes(ast.operator)) {
-        const leftIsNumber = Fraction.isValidNumber(left); // Needs Fraction
-        const rightIsNumber = Fraction.isValidNumber(right); // Needs Fraction
-        const leftType = leftIsNumber ? Types.NUMBER : typeof left; // Needs Types
-        const rightType = rightIsNumber ? Types.NUMBER : typeof right; // Needs Types
+        const leftIsNumber = Fraction.isValidNumber(left);
+        const rightIsNumber = Fraction.isValidNumber(right);
+        const leftType = leftIsNumber ? Types.NUMBER : typeof left;
+        const rightType = rightIsNumber ? Types.NUMBER : typeof right;
         if (leftType !== rightType) {
           throw new Error(`Type Error: Cannot compare values of different types (${leftType} vs ${rightType})`);
         }
@@ -53,7 +47,7 @@ const interpreter = (() => { //
             case '==': return left.equals(right);
           }
         }
-        if (leftType === Types.STRING || leftType === Types.BOOLEAN) { // Needs Types
+        if (leftType === Types.STRING || leftType === Types.BOOLEAN) {
           switch (ast.operator) {
             case '==': return left === right;
             case '>': return left > right;
@@ -65,31 +59,27 @@ const interpreter = (() => { //
     }
     throw new Error(`Unknown AST node type: ${ast.type}`);
   };
-
-  const executeProgram = (program) => { // Renamed from 'execute' to avoid conflict
+  const executeProgram = (program) => {
     let result;
     program.forEach(expr => {
       result = evaluate(expr);
     });
     return result;
   };
-
   const resetEnvironment = () => {
     environment.variables = {};
     environment.functions = {};
   };
-
   return {
     execute: (editor) => {
       try {
-        const tokens = tokenize(editor); // Needs tokenize
+        const tokens = tokenize(editor);
         if (tokens.length === 0) return "Empty input";
         tokens.forEach(token => {
           if (['+', '-', '*', '/'].includes(token.value) && token.color !== 'green' && token.color !== 'cyan') {
             throw new Error(`Type Error: Arithmetic operators must be Number type (green) or Symbol type (cyan), found ${token.color} for '${token.value}'`);
           }
-          if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) { // Allow fractions to be other colors initially before parsing
-             // Check if it's part of a fraction string; if so, specific color check is less strict here.
+          if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
             if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
                  if (token.color !== 'green'){
                     throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
@@ -103,9 +93,9 @@ const interpreter = (() => { //
             throw new Error(`Type Error: Assignment operator '=' must be Number type (green) or Symbol type (cyan), found ${token.color}`);
           }
         });
-        const ast = parse(tokens); // Needs parse
-        const result = executeProgram(ast); // Use renamed function
-        if (Fraction.isValidNumber(result)) return result.toString(); // Needs Fraction
+        const ast = parse(tokens);
+        const result = executeProgram(ast);
+        if (Fraction.isValidNumber(result)) return result.toString();
         else if (result === null || result === undefined) return "undefined";
         else return String(result);
       } catch (err) {

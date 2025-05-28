@@ -1,24 +1,16 @@
-// state.js
-
-// Potentially export each state object
-// export const elements = { ... };
-// export const drawState = { ... };
-// etc.
-
-const elements = { //
-  dotGrid: null, // Initialized in main.js
-  specialRow: null, // Initialized in main.js
-  lineCanvas: null, // Initialized in main.js
-  input: null, // Initialized in main.js
-  d2dArea: null, // Initialized in main.js
-  output: null, // Initialized in main.js
-  executeButton: null, // Initialized in main.js
-  clearButton: null, // Initialized in main.js
-  outputSection: null, // Initialized in main.js
-  textSection: null // Initialized in main.js
+const elements = {
+  dotGrid: null,
+  specialRow: null,
+  lineCanvas: null,
+  input: null,
+  d2dArea: null,
+  output: null,
+  executeButton: null,
+  clearButton: null,
+  outputSection: null,
+  textSection: null
 };
-
-const drawState = { //
+const drawState = {
   isActive: false,
   detectedDots: new Set(),
   detectedDotsList: [],
@@ -41,16 +33,14 @@ const drawState = { //
   lastDotY: 0,
   currentLineColor: null
 };
-
-const specialButtonState = { //
+const specialButtonState = {
   lastClickTime: 0,
   clickCount: 0,
   clickTarget: null,
   clickTimer: null,
-  doubleClickDelay: CONFIG.timing.doubleTapDelay // CONFIG should be defined (e.g. from constants.js)
+  doubleClickDelay: CONFIG.timing.doubleTapDelay
 };
-
-const keyState = { //
+const keyState = {
   deletePressed: false,
   spacePressed: false,
   lastPressTime: 0,

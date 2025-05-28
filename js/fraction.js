@@ -1,9 +1,4 @@
-// fraction.js
-
-// Potentially export Fraction
-// export const Fraction = (() => { ... })();
-
-const Fraction = (() => { //
+const Fraction = (() => {
   const gcd = (a, b) => {
     a = Math.abs(a);
     b = Math.abs(b);
@@ -21,7 +16,6 @@ const Fraction = (() => { //
     }
     return a;
   };
-
   const constructor = (numerator, denominator = 1, isFractionOperation = false) => {
     if (denominator === 0) throw new Error("Division by zero");
     const fraction = {};
@@ -68,7 +62,6 @@ const Fraction = (() => { //
     fraction.valueOf = () => fraction.numerator / fraction.denominator;
     return fraction;
   };
-
   constructor.fromString = (str, isFractionOp = false) => {
     if (str.includes('/')) {
       const [numerator, denominator] = str.split('/').map((s) => parseFloat(s.trim()));
@@ -76,13 +69,11 @@ const Fraction = (() => { //
     }
     return constructor(parseFloat(str), 1, isFractionOp);
   };
-
   constructor.isValidNumber = (value) => {
     return typeof value === 'object' &&
       value !== null &&
       'numerator' in value &&
       'denominator' in value;
   };
-
   return constructor;
 })();
