@@ -1,3 +1,4 @@
+// parser.js - 既存コードの修正
 const parse = (tokens) => {
   let position = 0;
   const peek = () => tokens[position] || null;
@@ -18,8 +19,8 @@ const parse = (tokens) => {
     if (token.value === '=') {
       consume();
       const variableToken = peek();
-      if (!variableToken || variableToken.color !== 'cyan' || !/^[A-Z][A-Z0-9_]*$/.test(variableToken.value)) {
-        throw new Error(`Syntax Error: Expected variable name (uppercase) after '=', found ${variableToken ? variableToken.value : 'end of input'}`);
+      if (!variableToken || variableToken.color !== 'red' || !/^[A-Z][A-Z0-9_]*$/.test(variableToken.value)) {
+        throw new Error(`Syntax Error: Expected variable name (uppercase symbol in red) after '=', found ${variableToken ? variableToken.value : 'end of input'}`);
       }
       const variable = consume().value;
       const value = parseExpression();
@@ -28,7 +29,7 @@ const parse = (tokens) => {
       }
       return { type: 'assignment', variable: variable, value: value };
     }
-    if (token.color === 'cyan' && /^[A-Z][A-Z0-9_]*$/.test(token.value)) {
+    if (token.color === 'red' && /^[A-Z][A-Z0-9_]*$/.test(token.value)) {
       return { type: 'variable', name: consume().value };
     }
     if (token.type === Types.NUMBER) {
