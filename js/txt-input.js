@@ -91,7 +91,7 @@ const insertColoredText = (text, color) => {
 const insertNewline = () => {
   const editor = elements.input;
   if (!editor) return;
-  editor.focus();
+  //editor.focus();
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
@@ -110,14 +110,20 @@ const insertNewline = () => {
 const insertAtCursor = (text) => {
   const editor = elements.input;
   if (!editor) return;
-  insertColoredText(text, currentActiveColor);
   if (isMobileDevice()) {
     showTextSection();
     if (!editor.isKeyboardMode) {
       focusWithoutKeyboard(editor);
+    } else {
+      focusOnInput();
     }
   } else {
     focusOnInput();
+  }
+  if (text === '\n') {
+    insertNewline();
+  } else {
+    insertColoredText(text, currentActiveColor);
   }
 };
 const clearInput = () => {
@@ -194,13 +200,23 @@ const setupEditorEvents = () => {
   if (!editor) return;
   let justExecuted = false;
   if (isMobileDevice()) {
-    editor.addEventListener('click', (e) => {
-      if (e.isTrusted && !justExecuted) {
-        editor.isKeyboardMode = true;
-        focusWithKeyboard(editor);
-      }
-      justExecuted = false;
-    });
+    // txt-input.js 内の setupEditorEvents 関数
+editor.addEventListener('click', (e) => {
+  // justExecuted は、コード実行直後の意図しないフォーカスやキーボード表示を抑制するためのもの
+  // クリックイベントが発生した時点で、このフラグによる抑制は一旦解除してよいでしょう。
+  const wasJustExecuted = justExecuted; // 直前の justExecuted の状態を保持
+  justExecuted = false; // フラグをリセット
+
+  if (e.isTrusted && !wasJustExecuted) { // 信頼できるクリックで、かつ実行直後でなければ
+    editor.isKeyboardMode = true; // キーボード入力モードに設定
+
+    if (isMobileDevice()) {
+      // モバイルの場合、outputが表示されていたらtext-sectionに切り替える
+      showTextSection();
+    }
+    focusWithKeyboard(editor); // 修正したfocusWithKeyboardを呼び出し
+  }
+});
     editor.addEventListener('focus', (e) => {
       if (justExecuted) {
         e.preventDefault();
@@ -245,16 +261,20 @@ function initRichTextEditor() {
       }
     }
   };
-  colorButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      applyColor(btn.dataset.color);
-      if (isMobileDevice()) {
-        focusWithoutKeyboard(editor);
-      } else {
-        focusOnInput();
-      }
-    });
+  // txt-input.js 内の initRichTextEditor 関数
+colorButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyColor(btn.dataset.color);
+    btn.blur(); // ボタン自体のフォーカスを解除
+
+    if (isMobileDevice()) {
+      // モバイルデバイスの場合、カラーボタンクリック時にはエディタにフォーカスしない
+      // focusWithoutKeyboard(editor); // この行をコメントアウトまたは削除
+    } else {
+      focusOnInput(); // デスクトップでは従来通りエディタにフォーカス
+    }
   });
+});
   editor.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();

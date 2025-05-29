@@ -84,22 +84,45 @@ const findSubsetProductMatches = (factors, dotValues) => {
 const isMobileDevice = () => {
   return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android/i.test(navigator.userAgent);
 };
-const focusWithoutKeyboard = (element) => {
-  if (!element) return;
+// utils.js
+const focusWithoutKeyboard = (element, callback) => {
+  if (!element) {
+    if (callback) callback(); // 要素がなければコールバックだけ実行（あれば）
+    return;
+  }
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
+  const originalInputMode = element.getAttribute('inputmode'); // 元のinputmodeを記憶
+
   element.setAttribute('readonly', 'readonly');
+  // inputmode="none" を設定してキーボード出現をさらに抑制しようと試みる
+  // (isKeyboardModeがfalseの時だけ呼び出される想定なので、ここでは常にnoneで良いはず)
+  element.setAttribute('inputmode', 'none');
   element.focus();
+
   setTimeout(() => {
     element.removeAttribute('readonly');
-  }, 10);
-  window.scrollTo(scrollX, scrollY);
+    // inputmodeを元に戻すか、noneのままにするかは呼び出し側のisKeyboardModeの状態によるが、
+    // focusWithoutKeyboard は「キーボードなし」が目的なので、ここでは変更しない方が安全かもしれません。
+    // もし戻す場合は:
+    // if (originalInputMode) {
+    //   element.setAttribute('inputmode', originalInputMode);
+    // } else {
+    //   element.removeAttribute('inputmode');
+    // }
+
+    if (callback) {
+      callback(); // readonly 解除後にコールバックを実行
+    }
+    window.scrollTo(scrollX, scrollY);
+  }, 10); // 10msの遅延。環境によって調整が必要な場合あり
 };
+// utils.js
 const focusWithKeyboard = (element) => {
   if (!element) return;
-  element.removeAttribute('inputmode');
-  element.removeAttribute('readonly');
-  element.focus();
+  element.setAttribute('inputmode', 'text'); // ★ inputmode="text" を明示的に設定
+  element.removeAttribute('readonly');    // readonly属性は確実に除去
+  element.focus();                       // フォーカスを当てる
 };
 const focusOnInput = () => {
   const editor = elements.input;
