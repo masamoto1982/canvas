@@ -168,6 +168,16 @@ section:last-child {
     /* border-color: #f9a825; */
 }
 
+/* 紫色の型ボタンを追加 */
+#color-purple {
+    color: #9C27B0;
+    border-color: #9C27B0;
+}
+
+#color-purple.active {
+    background-color: #f3e5f5; /* アクティブ時の背景色はごく薄い紫 */
+}
+
 #upper-half {
     flex: 1;
     min-height: 120px;
