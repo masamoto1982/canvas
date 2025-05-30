@@ -3,19 +3,24 @@ const Types = {
   BOOLEAN: 'boolean',
   STRING: 'string',
   SYMBOL: 'symbol',
+  LIST: 'list',  // 新しい型を追加
   UNDEFINED: 'undefined'
 };
+
 const ColorTypes = {
   'green': Types.NUMBER,
   'yellow': Types.BOOLEAN,
   'blue': Types.STRING,
-  'red': Types.SYMBOL
+  'red': Types.SYMBOL,
+  'purple': Types.LIST  // 紫色をリスト型に
 };
+
 const colorCodes = {
   'red': '#FF4B00',
   'green': '#03AF7A',
   'blue': '#005AFF',
-  'yellow': '#FFC107'
+  'yellow': '#FFC107',
+  'purple': '#9C27B0'  // 紫色を追加
 };
 const CONFIG = {
   sensitivity: {

@@ -2,7 +2,8 @@ const typePrefix = {
   'number': 'green',
   'boolean': 'yellow',
   'string': 'blue',
-  'symbol': 'red'
+  'symbol': 'red',
+  'list': 'purple'  // リスト型を追加
 };
 let currentActiveColor = 'yellow';
 const executeCode = () => {
@@ -53,7 +54,7 @@ const detectAndApplyTypePrefix = (editor) => {
     wordStart--;
   }
   const currentWord = text.substring(wordStart, cursorPos);
-  const prefixMatch = currentWord.match(/^(number|boolean|string|symbol):(.+)$/);
+  const prefixMatch = currentWord.match(/^(number|boolean|string|symbol|list):(.+)$/);
   if (prefixMatch) {
     const [fullMatch, type, value] = prefixMatch;
     const color = typePrefix[type];
@@ -91,7 +92,6 @@ const insertColoredText = (text, color) => {
 const insertNewline = () => {
   const editor = elements.input;
   if (!editor) return;
-  //editor.focus();
   const selection = window.getSelection();
   if (selection.rangeCount > 0) {
     const range = selection.getRangeAt(0);
@@ -200,23 +200,17 @@ const setupEditorEvents = () => {
   if (!editor) return;
   let justExecuted = false;
   if (isMobileDevice()) {
-    // txt-input.js 内の setupEditorEvents 関数
-editor.addEventListener('click', (e) => {
-  // justExecuted は、コード実行直後の意図しないフォーカスやキーボード表示を抑制するためのもの
-  // クリックイベントが発生した時点で、このフラグによる抑制は一旦解除してよいでしょう。
-  const wasJustExecuted = justExecuted; // 直前の justExecuted の状態を保持
-  justExecuted = false; // フラグをリセット
-
-  if (e.isTrusted && !wasJustExecuted) { // 信頼できるクリックで、かつ実行直後でなければ
-    editor.isKeyboardMode = true; // キーボード入力モードに設定
-
-    if (isMobileDevice()) {
-      // モバイルの場合、outputが表示されていたらtext-sectionに切り替える
-      showTextSection();
-    }
-    focusWithKeyboard(editor); // 修正したfocusWithKeyboardを呼び出し
-  }
-});
+    editor.addEventListener('click', (e) => {
+      const wasJustExecuted = justExecuted;
+      justExecuted = false;
+      if (e.isTrusted && !wasJustExecuted) {
+        editor.isKeyboardMode = true;
+        if (isMobileDevice()) {
+          showTextSection();
+        }
+        focusWithKeyboard(editor);
+      }
+    });
     editor.addEventListener('focus', (e) => {
       if (justExecuted) {
         e.preventDefault();
@@ -261,20 +255,17 @@ function initRichTextEditor() {
       }
     }
   };
-  // txt-input.js 内の initRichTextEditor 関数
-colorButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    applyColor(btn.dataset.color);
-    btn.blur(); // ボタン自体のフォーカスを解除
-
-    if (isMobileDevice()) {
-      // モバイルデバイスの場合、カラーボタンクリック時にはエディタにフォーカスしない
-      // focusWithoutKeyboard(editor); // この行をコメントアウトまたは削除
-    } else {
-      focusOnInput(); // デスクトップでは従来通りエディタにフォーカス
-    }
+  colorButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyColor(btn.dataset.color);
+      btn.blur();
+      if (isMobileDevice()) {
+        // モバイルデバイスの場合、カラーボタンクリック時にはエディタにフォーカスしない
+      } else {
+        focusOnInput();
+      }
+    });
   });
-});
   editor.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();
@@ -291,6 +282,7 @@ colorButtons.forEach(btn => {
       else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); applyColor('blue'); return; }
       else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); applyColor('green'); return; }
       else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); applyColor('yellow'); return; }
+      else if (e.key === 'p' || e.key === 'P') { e.preventDefault(); applyColor('purple'); return; }
       return;
     }
     if (e.key.length === 1) {
@@ -316,7 +308,7 @@ colorButtons.forEach(btn => {
       const tokens = line.split(/\s+/);
       tokens.forEach((token, tokenIndex) => {
         if (tokenIndex > 0) insertColoredText(' ', currentActiveColor);
-        const prefixMatch = token.match(/^(number|boolean|string|symbol):(.+)$/);
+        const prefixMatch = token.match(/^(number|boolean|string|symbol|list):(.+)$/);
         if (prefixMatch) {
           const [, type, value] = prefixMatch;
           const color = typePrefix[type] || currentActiveColor;

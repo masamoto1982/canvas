@@ -1,10 +1,10 @@
-// utils.js - rgbToColorName 関数の修正
 const rgbToColorName = (rgb) => {
   const exactColors = {
     '#FF4B00': 'red',
     '#03AF7A': 'green',
     '#005AFF': 'blue',
-    '#FFC107': 'yellow',  // 黄色を追加
+    '#FFC107': 'yellow',
+    '#9C27B0': 'purple',  // 紫色を追加
   };
   if (exactColors[rgb]) {
     return exactColors[rgb];
@@ -26,25 +26,20 @@ const rgbToColorName = (rgb) => {
   if (r > 200 && g < 150 && b < 100) return 'red';
   else if (r < 100 && g > 100 && b < 150) return 'green';
   else if (r < 100 && g < 150 && b > 150) return 'blue';
-  else if (r > 200 && g > 150 && b < 100) return 'yellow';  // 黄色の判定を追加
-  return 'red';  // デフォルトを 'cyan' から 'red' に変更
+  else if (r > 200 && g > 150 && b < 100) return 'yellow';
+  else if (r > 100 && g < 100 && b > 150) return 'purple';  // 紫色の判定を追加
+  return 'red';
 };
 
-// getCurrentColor 関数の修正
-const getCurrentColor = () => {
-  const activeColorBtn = document.querySelector('.color-btn.active');
-  return activeColorBtn ? activeColorBtn.dataset.color : 'red';  // デフォルトを 'cyan' から 'red' に変更
-};
-
-// getColorFromType 関数の修正
 const getColorFromType = (type) => {
   const typeToColor = {
     [Types.NUMBER]: 'green',
-    [Types.BOOLEAN]: 'yellow',  // 'red' から 'yellow' に変更
+    [Types.BOOLEAN]: 'yellow',
     [Types.STRING]: 'blue',
-    [Types.SYMBOL]: 'red'  // 'cyan' から 'red' に変更
+    [Types.SYMBOL]: 'red',
+    [Types.LIST]: 'purple'  // リスト型を追加
   };
-  return typeToColor[type] || 'red';  // デフォルトを 'cyan' から 'red' に変更
+  return typeToColor[type] || 'red';
 };
 const getTypeFromColor = (color) => {
   return ColorTypes[color] || Types.SYMBOL;
