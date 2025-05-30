@@ -1,6 +1,25 @@
 const interpreter = (() => {
   const environment = { variables: {}, functions: {} };
   
+  // ベクトルの形状を取得
+  const getShape = (vector) => {
+    if (!Array.isArray(vector)) return [];
+    const shape = [vector.length];
+    if (vector.length > 0 && Array.isArray(vector[0])) {
+      const innerShape = getShape(vector[0]);
+      shape.push(...innerShape);
+    }
+    return shape;
+  };
+  
+  // ベクトルをフラット化
+  const flatten = (vector) => {
+    if (!Array.isArray(vector)) return [vector];
+    return vector.reduce((flat, item) => {
+      return flat.concat(Array.isArray(item) ? flatten(item) : item);
+    }, []);
+  };
+  
   const evaluate = (ast, env = environment, localEnv = {}) => {
     if (!ast) return null;
     
@@ -9,8 +28,8 @@ const interpreter = (() => {
       return ast.value;
     }
     
-    // リスト
-    if (ast.type === Types.LIST) {
+    // ベクトル
+    if (ast.type === Types.VECTOR) {
       return ast.elements.map(elem => evaluate(elem, env, localEnv));
     }
     
@@ -65,131 +84,238 @@ const interpreter = (() => {
       const args = ast.args.map(arg => evaluate(arg, env, localEnv));
       
       switch (ast.name) {
-        case 'AT': {
-          const [table, row, col] = args;
-          if (!Array.isArray(table) || !Array.isArray(table[0])) {
-            throw new Error('AT expects a table (list of lists) as first argument');
+        case '@': {
+          const [vector, index] = args;
+          if (!Array.isArray(vector)) {
+            throw new Error('@ expects a vector as first argument');
           }
-          const rowIdx = Fraction.isValidNumber(row) ? row.valueOf() - 1 : row - 1;
-          const colIdx = Fraction.isValidNumber(col) ? col.valueOf() - 1 : col - 1;
-          if (rowIdx < 0 || rowIdx >= table.length || colIdx < 0 || colIdx >= table[rowIdx].length) {
+          const idx = Fraction.isValidNumber(index) ? index.valueOf() - 1 : index - 1;
+          if (idx < 0 || idx >= vector.length) {
             throw new Error('Index out of bounds');
           }
-          return table[rowIdx][colIdx];
+          return vector[idx];
         }
         
-        case 'ROW': {
-          const [table, row] = args;
-          if (!Array.isArray(table) || !Array.isArray(table[0])) {
-            throw new Error('ROW expects a table (list of lists) as first argument');
+        case 'LEN': {
+          const [vector] = args;
+          if (!Array.isArray(vector)) {
+            throw new Error('LEN expects a vector as argument');
           }
-          const rowIdx = Fraction.isValidNumber(row) ? row.valueOf() - 1 : row - 1;
-          if (rowIdx < 0 || rowIdx >= table.length) {
-            throw new Error('Row index out of bounds');
-          }
-          return table[rowIdx];
+          return Fraction(vector.length, 1);
         }
         
-        case 'COL': {
-          const [table, col] = args;
-          if (!Array.isArray(table) || !Array.isArray(table[0])) {
-            throw new Error('COL expects a table (list of lists) as first argument');
+        case 'TAKE': {
+          const [n, vector] = args;
+          if (!Array.isArray(vector)) {
+            throw new Error('TAKE expects a vector as second argument');
           }
-          const colIdx = Fraction.isValidNumber(col) ? col.valueOf() - 1 : col - 1;
-          const column = [];
-          for (let i = 0; i < table.length; i++) {
-            if (colIdx < 0 || colIdx >= table[i].length) {
-              throw new Error('Column index out of bounds');
-            }
-            column.push(table[i][colIdx]);
-          }
-          return column;
+          const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+          return vector.slice(0, count);
         }
         
-        case 'SUM': {
-          const [list] = args;
-          if (!Array.isArray(list)) {
-            throw new Error('SUM expects a list as argument');
+        case 'DROP': {
+          const [n, vector] = args;
+          if (!Array.isArray(vector)) {
+            throw new Error('DROP expects a vector as second argument');
           }
-          let sum = Fraction(0, 1);
-          for (const item of list) {
-            if (!Fraction.isValidNumber(item)) {
-              throw new Error('SUM can only sum numbers');
-            }
-            sum = sum.add(item);
-          }
-          return sum;
+          const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+          return vector.slice(count);
         }
         
-        case 'AVG': {
-          const [list] = args;
-          if (!Array.isArray(list)) {
-            throw new Error('AVG expects a list as argument');
+        case 'FOLD': {
+          const [op, vector] = args;
+          if (!Array.isArray(vector)) {
+            throw new Error('FOLD expects a vector as second argument');
           }
-          if (list.length === 0) {
-            throw new Error('Cannot calculate average of empty list');
+          if (vector.length === 0) {
+            throw new Error('Cannot fold empty vector');
           }
-          let sum = Fraction(0, 1);
-          for (const item of list) {
-            if (!Fraction.isValidNumber(item)) {
-              throw new Error('AVG can only average numbers');
+          
+          // 演算子を関数として評価
+          if (typeof op === 'string') {
+            let result = vector[0];
+            for (let i = 1; i < vector.length; i++) {
+              const operation = {
+                type: 'operation',
+                operator: op,
+                left: { type: 'value', value: result },
+                right: { type: 'value', value: vector[i] }
+              };
+              result = evaluate(operation, env, localEnv);
             }
-            sum = sum.add(item);
+            return result;
+          } else {
+            throw new Error('FOLD expects an operator as first argument');
           }
-          return sum.divide(Fraction(list.length, 1));
         }
         
-        case 'MAX': {
-          const [list] = args;
-          if (!Array.isArray(list)) {
-            throw new Error('MAX expects a list as argument');
+        case 'MAP': {
+          const [func, vector] = args;
+          if (!Array.isArray(vector)) {
+            throw new Error('MAP expects a vector as second argument');
           }
-          if (list.length === 0) {
-            throw new Error('Cannot find max of empty list');
+          
+          // 関数名の場合
+          if (typeof func === 'string' && func in env.functions) {
+            return vector.map(item => {
+              const callAst = {
+                type: 'function_call',
+                name: func,
+                args: [{ type: 'value', value: item }]
+              };
+              return evaluate(callAst, env, localEnv);
+            });
+          } else {
+            throw new Error('MAP expects a function name as first argument');
           }
-          let max = list[0];
-          for (let i = 1; i < list.length; i++) {
-            if (!Fraction.isValidNumber(list[i])) {
-              throw new Error('MAX can only compare numbers');
-            }
-            if (list[i].greaterThan(max)) {
-              max = list[i];
-            }
-          }
-          return max;
         }
         
-        case 'MIN': {
-          const [list] = args;
-          if (!Array.isArray(list)) {
-            throw new Error('MIN expects a list as argument');
+        case 'FILTER': {
+          const [pred, vector] = args;
+          if (!Array.isArray(vector)) {
+            throw new Error('FILTER expects a vector as second argument');
           }
-          if (list.length === 0) {
-            throw new Error('Cannot find min of empty list');
-          }
-          let min = list[0];
-          for (let i = 1; i < list.length; i++) {
-            if (!Fraction.isValidNumber(list[i])) {
-              throw new Error('MIN can only compare numbers');
+          
+          // 条件関数の適用
+          return vector.filter(item => {
+            if (typeof pred === 'string' && pred in env.functions) {
+              const callAst = {
+                type: 'function_call',
+                name: pred,
+                args: [{ type: 'value', value: item }]
+              };
+              const result = evaluate(callAst, env, localEnv);
+              return result === true;
+            } else {
+              throw new Error('FILTER expects a predicate function as first argument');
             }
-            if (max.greaterThan(list[i])) {
-              min = list[i];
-            }
-          }
-          return min;
+          });
         }
         
-        // MAP と FILTER は後で実装
+        case 'DOT': {
+          const [v1, v2] = args;
+          if (!Array.isArray(v1) || !Array.isArray(v2)) {
+            throw new Error('DOT expects two vectors as arguments');
+          }
+          if (v1.length !== v2.length) {
+            throw new Error('DOT product requires vectors of same length');
+          }
+          
+          let result = Fraction(0, 1);
+          for (let i = 0; i < v1.length; i++) {
+            if (!Fraction.isValidNumber(v1[i]) || !Fraction.isValidNumber(v2[i])) {
+              throw new Error('DOT product requires numeric vectors');
+            }
+            result = result.add(v1[i].multiply(v2[i]));
+          }
+          return result;
+        }
+        
+        case 'SHAPE': {
+          const [vector] = args;
+          if (!Array.isArray(vector)) {
+            return [];  // スカラーの形状は空ベクトル
+          }
+          return getShape(vector).map(n => Fraction(n, 1));
+        }
+        
+        case 'RESHAPE': {
+          const [shape, vector] = args;
+          if (!Array.isArray(shape)) {
+            throw new Error('RESHAPE expects a shape vector as first argument');
+          }
+          
+          const flat = Array.isArray(vector) ? flatten(vector) : [vector];
+          const dims = shape.map(d => Fraction.isValidNumber(d) ? d.valueOf() : d);
+          
+          // 1次元の場合
+          if (dims.length === 1) {
+            const size = dims[0];
+            const result = [];
+            for (let i = 0; i < size; i++) {
+              result.push(flat[i % flat.length]);
+            }
+            return result;
+          }
+          
+          // 多次元の場合（簡略化のため2次元まで）
+          if (dims.length === 2) {
+            const [rows, cols] = dims;
+            const result = [];
+            let idx = 0;
+            for (let i = 0; i < rows; i++) {
+              const row = [];
+              for (let j = 0; j < cols; j++) {
+                row.push(flat[idx % flat.length]);
+                idx++;
+              }
+              result.push(row);
+            }
+            return result;
+          }
+          
+          throw new Error('RESHAPE currently supports up to 2 dimensions');
+        }
+        
         default:
           throw new Error(`Unknown builtin function: ${ast.name}`);
       }
     }
     
-    // 演算
+    // 演算（ベクトル演算を含む）
     if (ast.type === 'operation') {
       const left = evaluate(ast.left, env, localEnv);
       const right = evaluate(ast.right, env, localEnv);
       
+      // ベクトル演算
+      if (Array.isArray(left) && Array.isArray(right)) {
+        if (['+', '-', '*', '/'].includes(ast.operator)) {
+          if (left.length !== right.length) {
+            throw new Error(`Vector operation requires vectors of same length`);
+          }
+          return left.map((l, i) => {
+            const operation = {
+              type: 'operation',
+              operator: ast.operator,
+              left: { type: 'value', value: l },
+              right: { type: 'value', value: right[i] }
+            };
+            return evaluate(operation, env, localEnv);
+          });
+        }
+      }
+      
+      // スカラー・ベクトル演算
+      if (Fraction.isValidNumber(left) && Array.isArray(right)) {
+        if (['*', '/'].includes(ast.operator)) {
+          return right.map(r => {
+            const operation = {
+              type: 'operation',
+              operator: ast.operator,
+              left: { type: 'value', value: left },
+              right: { type: 'value', value: r }
+            };
+            return evaluate(operation, env, localEnv);
+          });
+        }
+      }
+      
+      // ベクトル・スカラー演算
+      if (Array.isArray(left) && Fraction.isValidNumber(right)) {
+        if (['*', '/'].includes(ast.operator)) {
+          return left.map(l => {
+            const operation = {
+              type: 'operation',
+              operator: ast.operator,
+              left: { type: 'value', value: l },
+              right: { type: 'value', value: right }
+            };
+            return evaluate(operation, env, localEnv);
+          });
+        }
+      }
+      
+      // スカラー演算
       if (['+', '-', '*', '/'].includes(ast.operator)) {
         if (!Fraction.isValidNumber(left) || !Fraction.isValidNumber(right)) {
           throw new Error(`Type Error: Operator '${ast.operator}' requires Number type (green) operands`);
@@ -208,9 +334,9 @@ const interpreter = (() => {
         const leftIsNumber = Fraction.isValidNumber(left);
         const rightIsNumber = Fraction.isValidNumber(right);
         const leftType = leftIsNumber ? Types.NUMBER : 
-                        Array.isArray(left) ? Types.LIST : typeof left;
+                        Array.isArray(left) ? Types.VECTOR : typeof left;
         const rightType = rightIsNumber ? Types.NUMBER : 
-                         Array.isArray(right) ? Types.LIST : typeof right;
+                         Array.isArray(right) ? Types.VECTOR : typeof right;
         
         if (leftType !== rightType) {
           throw new Error(`Type Error: Cannot compare values of different types (${leftType} vs ${rightType})`);
@@ -234,6 +360,11 @@ const interpreter = (() => {
       }
       
       throw new Error(`Unknown operator: ${ast.operator}`);
+    }
+    
+    // value ノード（内部使用）
+    if (ast.type === 'value') {
+      return ast.value;
     }
     
     throw new Error(`Unknown AST node type: ${ast.type}`);
@@ -282,7 +413,7 @@ const interpreter = (() => {
               }
             }
           }
-          if (/^[A-Z][A-Z0-9_]*$/.test(token.value) && token.color !== 'red') {
+          if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) && token.color !== 'red') {
             throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
           }
           if (token.value === '=' && token.color !== 'green' && token.color !== 'red') {
@@ -292,7 +423,7 @@ const interpreter = (() => {
             throw new Error(`Type Error: Parentheses must be Symbol type (red), found ${token.color} for '${token.value}'`);
           }
           if (['[', ']'].includes(token.value) && token.color !== 'purple') {
-            throw new Error(`Type Error: List brackets must be List type (purple), found ${token.color} for '${token.value}'`);
+            throw new Error(`Type Error: Vector brackets must be Vector type (purple), found ${token.color} for '${token.value}'`);
           }
         });
         

@@ -14,20 +14,21 @@ const parse = (tokens) => {
   
   // 組み込み関数かどうかをチェック
   const isBuiltinFunction = (name) => {
-    return ['AT', 'ROW', 'COL', 'MAP', 'FILTER', 'SUM', 'AVG', 'MAX', 'MIN'].includes(name);
+    return ['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE'].includes(name);
   };
   
   // 組み込み関数の引数の数
   const builtinArity = {
-    'AT': 3,     // テーブル、行、列
-    'ROW': 2,    // テーブル、行番号
-    'COL': 2,    // テーブル、列番号
-    'MAP': 2,    // リスト、関数
-    'FILTER': 2, // リスト、条件
-    'SUM': 1,    // リスト
-    'AVG': 1,    // リスト
-    'MAX': 1,    // リスト
-    'MIN': 1     // リスト
+    '@': 2,       // ベクトル、インデックス
+    'LEN': 1,     // ベクトル
+    'TAKE': 2,    // 数、ベクトル
+    'DROP': 2,    // 数、ベクトル
+    'FOLD': 2,    // 関数、ベクトル
+    'MAP': 2,     // 関数、ベクトル
+    'FILTER': 2,  // 条件、ベクトル
+    'DOT': 2,     // ベクトル、ベクトル（内積）
+    'SHAPE': 1,   // ベクトル（形状を返す）
+    'RESHAPE': 2  // 形状、ベクトル
   };
   
   const parseExpression = () => {
@@ -39,29 +40,29 @@ const parse = (tokens) => {
     const token = peek();
     console.log(`Parse expression at position ${position}: ${token.value}(${token.color})`);
     
-    // リストの処理
+    // ベクトルの処理
     if (token.value === '[' && token.color === 'purple') {
       consume(); // '[' を消費
-      console.log("Parse list");
+      console.log("Parse vector");
       const elements = [];
       
       while (!isAtEnd() && peek().value !== ']') {
         const elem = parseExpression();
         if (elem) {
           elements.push(elem);
-          console.log(`Added list element:`, elem);
+          console.log(`Added vector element:`, elem);
         }
       }
       
       if (isAtEnd() || peek().value !== ']') {
-        throw new Error(`Syntax Error: Expected ']' to close list`);
+        throw new Error(`Syntax Error: Expected ']' to close vector`);
       }
       consume(); // ']' を消費
       
-      return { type: Types.LIST, elements: elements };
+      return { type: Types.VECTOR, elements: elements };
     }
     
-    // 演算子の処理
+    // 演算子の処理（ベクトル演算を含む）
     if (['+', '-', '*', '/', '>', '>=', '=='].includes(token.value)) {
       const operator = consume().value;
       console.log(`Parse operator: ${operator}`);
@@ -134,7 +135,7 @@ const parse = (tokens) => {
     }
     
     // シンボル（変数参照、関数呼び出し、または組み込み関数）
-    if (token.color === 'red' && /^[A-Z][A-Z0-9_]*$/.test(token.value)) {
+    if (token.color === 'red' && /^[A-Z@][A-Z0-9_]*$/.test(token.value)) {
       const name = consume().value;
       console.log(`Parse symbol: ${name}`);
       
@@ -163,7 +164,7 @@ const parse = (tokens) => {
       const nextToken = peek();
       console.log(`Next token after ${name}:`, nextToken ? `${nextToken.value}(${nextToken.color})` : 'none');
       
-      // 次が演算子、括弧、リスト閉じ、または終端なら変数参照
+      // 次が演算子、括弧、ベクトル閉じ、または終端なら変数参照
       if (!nextToken || isOperator(nextToken) || nextToken.value === ')' || nextToken.value === ']') {
         console.log(`${name} is a variable reference`);
         return { type: 'variable', name: name };
@@ -172,15 +173,12 @@ const parse = (tokens) => {
       // ユーザー定義関数の呼び出しを試みる
       console.log(`Trying to parse as user function call ${name}`);
       
-      // 関数呼び出しの場合、引数の数は事前に分からないので
-      // 演算子や他の区切り文字が来るまで引数を読む
       const args = [];
       const savedPosition = position;
       
       // 最初の引数を試行的に読む
       const firstArg = parseExpression();
       if (!firstArg) {
-        // 引数がない場合は変数参照
         console.log(`No arguments, ${name} is a variable`);
         position = savedPosition;
         return { type: 'variable', name: name };
@@ -190,7 +188,6 @@ const parse = (tokens) => {
       console.log(`First argument for ${name}:`, firstArg);
       
       // 2番目の引数があるかチェック
-      // 次が演算子でなく、他の式が続く場合のみ
       const afterFirst = peek();
       if (afterFirst && !isOperator(afterFirst) && afterFirst.value !== ')' && afterFirst.value !== ']') {
         const secondArg = parseExpression();

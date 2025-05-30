@@ -3,7 +3,7 @@ const typePrefix = {
   'boolean': 'yellow',
   'string': 'blue',
   'symbol': 'red',
-  'list': 'purple'  // リスト型を追加
+  'vector': 'purple'  // 'list' から 'vector' に変更
 };
 let currentActiveColor = 'yellow';
 const executeCode = () => {
@@ -54,7 +54,7 @@ const detectAndApplyTypePrefix = (editor) => {
     wordStart--;
   }
   const currentWord = text.substring(wordStart, cursorPos);
-  const prefixMatch = currentWord.match(/^(number|boolean|string|symbol|list):(.+)$/);
+  const prefixMatch = currentWord.match(/^(number|boolean|string|symbol|vector):(.+)$/);
   if (prefixMatch) {
     const [fullMatch, type, value] = prefixMatch;
     const color = typePrefix[type];
@@ -308,7 +308,7 @@ function initRichTextEditor() {
       const tokens = line.split(/\s+/);
       tokens.forEach((token, tokenIndex) => {
         if (tokenIndex > 0) insertColoredText(' ', currentActiveColor);
-        const prefixMatch = token.match(/^(number|boolean|string|symbol|list):(.+)$/);
+        const prefixMatch = token.match(/^(number|boolean|string|symbol|vector):(.+)$/);
         if (prefixMatch) {
           const [, type, value] = prefixMatch;
           const color = typePrefix[type] || currentActiveColor;

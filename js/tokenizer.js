@@ -23,16 +23,16 @@ const tokenize = (editor) => {
               type: Types.LIST
             });
           } else {
-            const prefixMatch = part.match(/^(number|boolean|string|symbol|list):(.+)$/);
-            if (prefixMatch) {
-              const [, type, value] = prefixMatch;
-              const prefixColor = {
-                'number': 'green',
-                'boolean': 'yellow',
-                'string': 'blue',
-                'symbol': 'red',
-                'list': 'purple'
-              }[type];
+            const prefixMatch = part.match(/^(number|boolean|string|symbol|vector):(.+)$/);
+if (prefixMatch) {
+  const [, type, value] = prefixMatch;
+  const prefixColor = {
+    'number': 'green',
+    'boolean': 'yellow',
+    'string': 'blue',
+    'symbol': 'red',
+    'vector': 'purple'  // 'list' から 'vector' に変更
+  }[type];
               tokens.push({
                 value: value,
                 color: prefixColor || color,

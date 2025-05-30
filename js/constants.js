@@ -3,7 +3,7 @@ const Types = {
   BOOLEAN: 'boolean',
   STRING: 'string',
   SYMBOL: 'symbol',
-  LIST: 'list',  // 新しい型を追加
+  VECTOR: 'vector',  // LIST から VECTOR に変更
   UNDEFINED: 'undefined'
 };
 
@@ -12,7 +12,7 @@ const ColorTypes = {
   'yellow': Types.BOOLEAN,
   'blue': Types.STRING,
   'red': Types.SYMBOL,
-  'purple': Types.LIST  // 紫色をリスト型に
+  'purple': Types.VECTOR  // 紫色をベクトル型に
 };
 
 const colorCodes = {

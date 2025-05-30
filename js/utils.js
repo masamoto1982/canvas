@@ -37,7 +37,7 @@ const getColorFromType = (type) => {
     [Types.BOOLEAN]: 'yellow',
     [Types.STRING]: 'blue',
     [Types.SYMBOL]: 'red',
-    [Types.LIST]: 'purple'  // リスト型を追加
+    [Types.VECTOR]: 'purple'  // LIST から VECTOR に変更
   };
   return typeToColor[type] || 'red';
 };
