@@ -131,42 +131,54 @@ const interpreter = (() => {
             throw new Error('Cannot fold empty vector');
           }
           
-          // 演算子を関数として評価
-          if (typeof op === 'string') {
-            let result = vector[0];
-            for (let i = 1; i < vector.length; i++) {
-              const operation = {
-                type: 'operation',
-                operator: op,
-                left: { type: 'value', value: result },
-                right: { type: 'value', value: vector[i] }
-              };
-              result = evaluate(operation, env, localEnv);
+          // 最初の引数が演算子シンボルの場合
+          let result = vector[0];
+          for (let i = 1; i < vector.length; i++) {
+            // 演算を直接評価
+            if (op === '+') {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+                throw new Error('FOLD with + requires numeric vector');
+              }
+              result = result.add(vector[i], false);
+            } else if (op === '-') {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+                throw new Error('FOLD with - requires numeric vector');
+              }
+              result = result.subtract(vector[i], false);
+            } else if (op === '*') {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+                throw new Error('FOLD with * requires numeric vector');
+              }
+              result = result.multiply(vector[i], false);
+            } else if (op === '/') {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+                throw new Error('FOLD with / requires numeric vector');
+              }
+              if (vector[i].numerator === 0) throw new Error('Division by zero');
+              result = result.divide(vector[i], false);
+            } else {
+              throw new Error(`FOLD: Unknown operator ${op}`);
             }
-            return result;
-          } else {
-            throw new Error('FOLD expects an operator as first argument');
           }
+          return result;
         }
         
         case 'MAP': {
-          const [func, vector] = args;
+          const [funcName, vector] = args;
           if (!Array.isArray(vector)) {
             throw new Error('MAP expects a vector as second argument');
           }
           
-          // 関数名の場合
-          if (typeof func === 'string' && func in env.functions) {
+          // 関数名がユーザー定義関数の場合
+          if (funcName in env.functions) {
+            const func = env.functions[funcName];
             return vector.map(item => {
-              const callAst = {
-                type: 'function_call',
-                name: func,
-                args: [{ type: 'value', value: item }]
-              };
-              return evaluate(callAst, env, localEnv);
+              const newLocalEnv = {};
+              newLocalEnv[func.params[0]] = item;
+              return evaluate(func.body, env, newLocalEnv);
             });
           } else {
-            throw new Error('MAP expects a function name as first argument');
+            throw new Error(`MAP: Undefined function ${funcName}`);
           }
         }
         
@@ -401,11 +413,14 @@ const interpreter = (() => {
         const tokens = tokenize(editor);
         if (tokens.length === 0) return "Empty input";
         
-        // トークンの型チェック
+        // トークンの型チェック（演算子は色に関係なく許可）
         tokens.forEach(token => {
-          if (['+', '-', '*', '/'].includes(token.value) && token.color !== 'green' && token.color !== 'red') {
-            throw new Error(`Type Error: Arithmetic operators must be Number type (green) or Symbol type (red), found ${token.color} for '${token.value}'`);
+          // 演算子は任意の色で入力可能
+          if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
+            return; // 演算子は型チェックをスキップ
           }
+          
+          // 数値リテラルのチェック
           if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
             if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
               if (token.color !== 'green'){
@@ -413,15 +428,20 @@ const interpreter = (() => {
               }
             }
           }
-          if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) && token.color !== 'red') {
+          
+          // 変数名と組み込み関数のチェック（@も含む）
+          if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) && 
+              !['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE'].includes(token.value) &&
+              token.color !== 'red') {
             throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
           }
-          if (token.value === '=' && token.color !== 'green' && token.color !== 'red') {
-            throw new Error(`Type Error: Assignment operator '=' must be Number type (green) or Symbol type (red), found ${token.color}`);
-          }
+          
+          // 括弧のチェック
           if (['(', ')'].includes(token.value) && token.color !== 'red') {
             throw new Error(`Type Error: Parentheses must be Symbol type (red), found ${token.color} for '${token.value}'`);
           }
+          
+          // ベクトル括弧のチェック
           if (['[', ']'].includes(token.value) && token.color !== 'purple') {
             throw new Error(`Type Error: Vector brackets must be Vector type (purple), found ${token.color} for '${token.value}'`);
           }

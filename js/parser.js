@@ -31,6 +31,37 @@ const parse = (tokens) => {
     'RESHAPE': 2  // 形状、ベクトル
   };
   
+  // 組み込み関数専用の引数パーサー
+  const parseBuiltinArgs = (funcName, expectedCount) => {
+    const args = [];
+    for (let i = 0; i < expectedCount; i++) {
+      if (isAtEnd()) {
+        throw new Error(`Builtin function ${funcName} expects ${expectedCount} arguments, but got ${i}`);
+      }
+      
+      console.log(`Parsing argument ${i + 1} for builtin ${funcName}...`);
+      
+      // 各引数を独立して解析
+      const token = peek();
+      let arg;
+      
+      // 変数名の場合は変数参照として扱う
+      if (token.color === 'red' && /^[A-Z][A-Z0-9_]*$/.test(token.value) && !isBuiltinFunction(token.value)) {
+        arg = { type: 'variable', name: consume().value };
+        console.log(`Parsed as variable: ${arg.name}`);
+      } else {
+        // それ以外は通常の式として解析
+        arg = parseExpression();
+      }
+      
+      if (!arg) {
+        throw new Error(`Builtin function ${funcName} expects ${expectedCount} arguments`);
+      }
+      args.push(arg);
+    }
+    return args;
+  };
+  
   const parseExpression = () => {
     if (isAtEnd()) {
       console.log("Parse: End of tokens");
@@ -143,20 +174,7 @@ const parse = (tokens) => {
       if (isBuiltinFunction(name)) {
         console.log(`${name} is a builtin function`);
         const expectedArgs = builtinArity[name];
-        const args = [];
-        
-        for (let i = 0; i < expectedArgs; i++) {
-          if (isAtEnd()) {
-            throw new Error(`Builtin function ${name} expects ${expectedArgs} arguments, but got ${i}`);
-          }
-          console.log(`Parsing argument ${i + 1} for builtin ${name}...`);
-          const arg = parseExpression();
-          if (!arg) {
-            throw new Error(`Builtin function ${name} expects ${expectedArgs} arguments, but got ${i}`);
-          }
-          args.push(arg);
-        }
-        
+        const args = parseBuiltinArgs(name, expectedArgs);
         return { type: 'builtin_call', name: name, args: args };
       }
       
