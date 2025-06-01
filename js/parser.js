@@ -7,9 +7,14 @@ const parse = (tokens) => {
   console.log("=== PARSING START ===");
   console.log("Tokens:", tokens.map(t => `${t.value}(${t.color})`).join(" "));
   
-  // 演算子かどうかをチェック
+  // 演算子かどうかをチェック（色に関係なく）
   const isOperator = (token) => {
     return token && ['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value);
+  };
+  
+  // 演算子トークンかどうかをチェック（値のみで判定）
+  const isOperatorToken = (token) => {
+    return token && ['+', '-', '*', '/', '>', '>=', '=='].includes(token.value);
   };
   
   // 組み込み関数かどうかをチェック
@@ -23,7 +28,7 @@ const parse = (tokens) => {
     'LEN': 1,     // ベクトル
     'TAKE': 2,    // 数、ベクトル
     'DROP': 2,    // 数、ベクトル
-    'FOLD': 2,    // 関数、ベクトル
+    'FOLD': 2,    // 演算子、ベクトル
     'MAP': 2,     // 関数、ベクトル
     'FILTER': 2,  // 条件、ベクトル
     'DOT': 2,     // ベクトル、ベクトル（内積）
@@ -51,7 +56,7 @@ const parse = (tokens) => {
         console.log(`Parsed as variable: ${arg.name}`);
       } else {
         // それ以外は通常の式として解析
-        arg = parseExpression();
+        arg = parseExpression(true); // inOperatorContext = true
       }
       
       if (!arg) {
@@ -62,7 +67,8 @@ const parse = (tokens) => {
     return args;
   };
   
-  const parseExpression = () => {
+  // parseExpression に文脈フラグを追加
+  const parseExpression = (inOperatorContext = false) => {
     if (isAtEnd()) {
       console.log("Parse: End of tokens");
       return null;
@@ -94,16 +100,16 @@ const parse = (tokens) => {
     }
     
     // 演算子の処理（ベクトル演算を含む）
-    if (['+', '-', '*', '/', '>', '>=', '=='].includes(token.value)) {
+    if (isOperatorToken(token)) {
       const operator = consume().value;
       console.log(`Parse operator: ${operator}`);
       
       console.log(`Parsing left operand for ${operator}...`);
-      const left = parseExpression();
+      const left = parseExpression(true); // 演算子の文脈で解析
       console.log(`Left operand:`, left);
       
       console.log(`Parsing right operand for ${operator}...`);
-      const right = parseExpression();
+      const right = parseExpression(true); // 演算子の文脈で解析
       console.log(`Right operand:`, right);
       
       if (!left || !right) {
@@ -181,6 +187,12 @@ const parse = (tokens) => {
       // 次のトークンをチェック
       const nextToken = peek();
       console.log(`Next token after ${name}:`, nextToken ? `${nextToken.value}(${nextToken.color})` : 'none');
+      
+      // 演算子の文脈内では、常に変数参照として扱う
+      if (inOperatorContext) {
+        console.log(`In operator context, ${name} is a variable reference`);
+        return { type: 'variable', name: name };
+      }
       
       // 次が演算子、括弧、ベクトル閉じ、または終端なら変数参照
       if (!nextToken || isOperator(nextToken) || nextToken.value === ')' || nextToken.value === ']') {
