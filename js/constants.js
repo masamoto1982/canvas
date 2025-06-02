@@ -3,7 +3,8 @@ const Types = {
   BOOLEAN: 'boolean',
   STRING: 'string',
   SYMBOL: 'symbol',
-  VECTOR: 'vector',  // LIST から VECTOR に変更
+  VECTOR: 'vector',
+  NIL: 'nil',  // 新しい型を追加
   UNDEFINED: 'undefined'
 };
 
@@ -12,7 +13,8 @@ const ColorTypes = {
   'yellow': Types.BOOLEAN,
   'blue': Types.STRING,
   'red': Types.SYMBOL,
-  'purple': Types.VECTOR  // 紫色をベクトル型に
+  'purple': Types.VECTOR,
+  'gray': Types.NIL  // グレーをnil型に（または別の色を選択）
 };
 
 const colorCodes = {
@@ -20,7 +22,8 @@ const colorCodes = {
   'green': '#03AF7A',
   'blue': '#005AFF',
   'yellow': '#FFC107',
-  'purple': '#9C27B0'  // 紫色を追加
+  'purple': '#9C27B0',
+  'gray': '#9E9E9E'  // グレーを追加
 };
 const CONFIG = {
   sensitivity: {

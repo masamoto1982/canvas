@@ -98,6 +98,13 @@ const parse = (tokens) => {
       
       return { type: Types.VECTOR, elements: elements };
     }
+	
+	// NIL の処理（ここに追加）
+  if (token.value === 'NIL') {
+    consume();
+    console.log(`Parse nil`);
+    return { type: Types.NIL, value: null };
+  }
     
     // 演算子の処理（ベクトル演算を含む）
     if (isOperatorToken(token)) {

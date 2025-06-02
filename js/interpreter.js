@@ -1,22 +1,44 @@
 const interpreter = (() => {
   const environment = { variables: {}, functions: {} };
   
-  // ベクトルの形状を取得
+  // nil値の定義
+  const NIL = { type: Types.NIL, value: null };
+  
+  // 値がnilかどうかをチェック
+  const isNil = (value) => {
+    return value && value.type === Types.NIL;
+  };
+  
+  // ベクトルの形状を取得（nilを考慮）
   const getShape = (vector) => {
     if (!Array.isArray(vector)) return [];
     const shape = [vector.length];
-    if (vector.length > 0 && Array.isArray(vector[0])) {
-      const innerShape = getShape(vector[0]);
+    // 最初の非nil要素を探す
+    let firstNonNil = null;
+    for (let i = 0; i < vector.length; i++) {
+      if (!isNil(vector[i])) {
+        firstNonNil = vector[i];
+        break;
+      }
+    }
+    if (firstNonNil && Array.isArray(firstNonNil)) {
+      const innerShape = getShape(firstNonNil);
       shape.push(...innerShape);
     }
     return shape;
   };
   
-  // ベクトルをフラット化
+  // ベクトルをフラット化（nilを保持）
   const flatten = (vector) => {
     if (!Array.isArray(vector)) return [vector];
     return vector.reduce((flat, item) => {
-      return flat.concat(Array.isArray(item) ? flatten(item) : item);
+      if (isNil(item)) {
+        return flat.concat(item);
+      } else if (Array.isArray(item)) {
+        return flat.concat(flatten(item));
+      } else {
+        return flat.concat(item);
+      }
     }, []);
   };
   
@@ -28,6 +50,11 @@ const interpreter = (() => {
       return ast.value;
     }
     
+    // nil値
+    if (ast.type === Types.NIL) {
+      return NIL;
+    }
+    
     // ベクトル
     if (ast.type === Types.VECTOR) {
       return ast.elements.map(elem => evaluate(elem, env, localEnv));
@@ -35,6 +62,10 @@ const interpreter = (() => {
     
     // 変数参照
     if (ast.type === 'variable') {
+      // NIL という特別な変数名
+      if (ast.name === 'NIL') {
+        return NIL;
+      }
       if (ast.name in localEnv) {
         return localEnv[ast.name];
       }
@@ -89,10 +120,26 @@ const interpreter = (() => {
           if (!Array.isArray(vector)) {
             throw new Error('@ expects a vector as first argument');
           }
-          const idx = Fraction.isValidNumber(index) ? index.valueOf() - 1 : index - 1;
-          if (idx < 0 || idx >= vector.length) {
-            throw new Error('Index out of bounds');
+          
+          let idx;
+          if (Fraction.isValidNumber(index)) {
+            idx = Math.floor(index.valueOf());
+          } else if (typeof index === 'number') {
+            idx = Math.floor(index);
+          } else {
+            throw new Error('@ expects a numeric index as second argument');
           }
+          
+          // 負のインデックスの処理（Pythonスタイル）
+          if (idx < 0) {
+            idx = vector.length + idx;
+          }
+          
+          // 範囲チェック
+          if (idx < 0 || idx >= vector.length) {
+            throw new Error(`Index ${index} out of bounds for vector of length ${vector.length}`);
+          }
+          
           return vector[idx];
         }
         
@@ -110,6 +157,10 @@ const interpreter = (() => {
             throw new Error('TAKE expects a vector as second argument');
           }
           const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+          if (count < 0) {
+            // 負の数の場合は末尾から取得
+            return vector.slice(count);
+          }
           return vector.slice(0, count);
         }
         
@@ -119,6 +170,10 @@ const interpreter = (() => {
             throw new Error('DROP expects a vector as second argument');
           }
           const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+          if (count < 0) {
+            // 負の数の場合は末尾から削除
+            return vector.slice(0, count);
+          }
           return vector.slice(count);
         }
         
@@ -127,35 +182,36 @@ const interpreter = (() => {
           if (!Array.isArray(vector)) {
             throw new Error('FOLD expects a vector as second argument');
           }
-          if (vector.length === 0) {
-            throw new Error('Cannot fold empty vector');
+          
+          // nil値を除外
+          const nonNilValues = vector.filter(v => !isNil(v));
+          if (nonNilValues.length === 0) {
+            throw new Error('Cannot fold empty vector or vector with only nil values');
           }
           
-          // 最初の引数が演算子シンボルの場合
-          let result = vector[0];
-          for (let i = 1; i < vector.length; i++) {
-            // 演算を直接評価
+          let result = nonNilValues[0];
+          for (let i = 1; i < nonNilValues.length; i++) {
             if (op === '+') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
                 throw new Error('FOLD with + requires numeric vector');
               }
-              result = result.add(vector[i], false);
+              result = result.add(nonNilValues[i], false);
             } else if (op === '-') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
                 throw new Error('FOLD with - requires numeric vector');
               }
-              result = result.subtract(vector[i], false);
+              result = result.subtract(nonNilValues[i], false);
             } else if (op === '*') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
                 throw new Error('FOLD with * requires numeric vector');
               }
-              result = result.multiply(vector[i], false);
+              result = result.multiply(nonNilValues[i], false);
             } else if (op === '/') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(vector[i])) {
+              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
                 throw new Error('FOLD with / requires numeric vector');
               }
-              if (vector[i].numerator === 0) throw new Error('Division by zero');
-              result = result.divide(vector[i], false);
+              if (nonNilValues[i].numerator === 0) throw new Error('Division by zero');
+              result = result.divide(nonNilValues[i], false);
             } else {
               throw new Error(`FOLD: Unknown operator ${op}`);
             }
@@ -215,6 +271,9 @@ const interpreter = (() => {
           
           let result = Fraction(0, 1);
           for (let i = 0; i < v1.length; i++) {
+            // nil値はスキップ
+            if (isNil(v1[i]) || isNil(v2[i])) continue;
+            
             if (!Fraction.isValidNumber(v1[i]) || !Fraction.isValidNumber(v2[i])) {
               throw new Error('DOT product requires numeric vectors');
             }
@@ -279,6 +338,11 @@ const interpreter = (() => {
       const left = evaluate(ast.left, env, localEnv);
       const right = evaluate(ast.right, env, localEnv);
       
+      // nilとの演算は常にnilを返す
+      if (isNil(left) || isNil(right)) {
+        return NIL;
+      }
+      
       // ベクトル演算
       if (Array.isArray(left) && Array.isArray(right)) {
         if (['+', '-', '*', '/'].includes(ast.operator)) {
@@ -286,6 +350,10 @@ const interpreter = (() => {
             throw new Error(`Vector operation requires vectors of same length`);
           }
           return left.map((l, i) => {
+            // nil値の処理
+            if (isNil(l) || isNil(right[i])) {
+              return NIL;
+            }
             const operation = {
               type: 'operation',
               operator: ast.operator,
@@ -301,6 +369,7 @@ const interpreter = (() => {
       if (Fraction.isValidNumber(left) && Array.isArray(right)) {
         if (['*', '/'].includes(ast.operator)) {
           return right.map(r => {
+            if (isNil(r)) return NIL;
             const operation = {
               type: 'operation',
               operator: ast.operator,
@@ -316,6 +385,7 @@ const interpreter = (() => {
       if (Array.isArray(left) && Fraction.isValidNumber(right)) {
         if (['*', '/'].includes(ast.operator)) {
           return left.map(l => {
+            if (isNil(l)) return NIL;
             const operation = {
               type: 'operation',
               operator: ast.operator,
@@ -383,7 +453,9 @@ const interpreter = (() => {
   };
   
   const formatValue = (value) => {
-    if (Fraction.isValidNumber(value)) {
+    if (isNil(value)) {
+      return "nil";
+    } else if (Fraction.isValidNumber(value)) {
       return value.toString();
     } else if (Array.isArray(value)) {
       return '[ ' + value.map(formatValue).join(' ') + ' ]';
@@ -417,7 +489,12 @@ const interpreter = (() => {
         tokens.forEach(token => {
           // 演算子は任意の色で入力可能
           if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
-            return; // 演算子は型チェックをスキップ
+            return;
+          }
+          
+          // NIL は特別なキーワード（任意の色で入力可能）
+          if (token.value === 'NIL') {
+            return;
           }
           
           // 数値リテラルのチェック
