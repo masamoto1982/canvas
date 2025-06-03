@@ -37,35 +37,41 @@ const parse = (tokens) => {
   };
   
   // 組み込み関数専用の引数パーサー
-  const parseBuiltinArgs = (funcName, expectedCount) => {
-    const args = [];
-    for (let i = 0; i < expectedCount; i++) {
-      if (isAtEnd()) {
-        throw new Error(`Builtin function ${funcName} expects ${expectedCount} arguments, but got ${i}`);
-      }
-      
-      console.log(`Parsing argument ${i + 1} for builtin ${funcName}...`);
-      
-      // 各引数を独立して解析
-      const token = peek();
-      let arg;
-      
-      // 変数名の場合は変数参照として扱う
-      if (token.color === 'red' && /^[A-Z][A-Z0-9_]*$/.test(token.value) && !isBuiltinFunction(token.value)) {
-        arg = { type: 'variable', name: consume().value };
-        console.log(`Parsed as variable: ${arg.name}`);
-      } else {
-        // それ以外は通常の式として解析
-        arg = parseExpression(true); // inOperatorContext = true
-      }
-      
-      if (!arg) {
-        throw new Error(`Builtin function ${funcName} expects ${expectedCount} arguments`);
-      }
-      args.push(arg);
+  // parseBuiltinArgs 関数内の修正
+const parseBuiltinArgs = (funcName, expectedCount) => {
+  const args = [];
+  for (let i = 0; i < expectedCount; i++) {
+    if (isAtEnd()) {
+      throw new Error(`Builtin function ${funcName} expects ${expectedCount} arguments, but got ${i}`);
     }
-    return args;
-  };
+    
+    console.log(`Parsing argument ${i + 1} for builtin ${funcName}...`);
+    
+    // 各引数を独立して解析
+    const token = peek();
+    let arg;
+    
+    // FOLDの最初の引数は演算子
+    if (funcName === 'FOLD' && i === 0 && isOperatorToken(token)) {
+      arg = { type: 'operator', value: consume().value };
+      console.log(`Parsed as operator: ${arg.value}`);
+    }
+    // 変数名の場合は変数参照として扱う
+    else if (token.color === 'red' && /^[A-Z][A-Z0-9_]*$/.test(token.value) && !isBuiltinFunction(token.value)) {
+      arg = { type: 'variable', name: consume().value };
+      console.log(`Parsed as variable: ${arg.name}`);
+    } else {
+      // それ以外は通常の式として解析
+      arg = parseExpression(true); // inOperatorContext = true
+    }
+    
+    if (!arg) {
+      throw new Error(`Builtin function ${funcName} expects ${expectedCount} arguments`);
+    }
+    args.push(arg);
+  }
+  return args;
+};
   
   // parseExpression に文脈フラグを追加
   const parseExpression = (inOperatorContext = false) => {
