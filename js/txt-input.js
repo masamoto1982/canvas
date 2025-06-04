@@ -3,7 +3,7 @@ const typePrefix = {
   'boolean': 'yellow',
   'string': 'blue',
   'symbol': 'red',
-  'vector': 'purple'  // 'list' から 'vector' に変更
+  'vector': 'purple'
 };
 let currentActiveColor = 'yellow';
 const executeCode = () => {
@@ -24,6 +24,9 @@ const executeCode = () => {
       elements.output.classList.add('executed');
       setTimeout(() => elements.output.classList.remove('executed'), 300);
       editor.innerHTML = '';
+    } else {
+      elements.output.classList.add('error');
+      setTimeout(() => elements.output.classList.remove('error'), 300);
     }
   }
   if (isMobileDevice()) {
@@ -260,7 +263,6 @@ function initRichTextEditor() {
       applyColor(btn.dataset.color);
       btn.blur();
       if (isMobileDevice()) {
-        // モバイルデバイスの場合、カラーボタンクリック時にはエディタにフォーカスしない
       } else {
         focusOnInput();
       }

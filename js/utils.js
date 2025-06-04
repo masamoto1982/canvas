@@ -4,7 +4,7 @@ const rgbToColorName = (rgb) => {
     '#03AF7A': 'green',
     '#005AFF': 'blue',
     '#FFC107': 'yellow',
-    '#9C27B0': 'purple',  // 紫色を追加
+    '#9C27B0': 'purple',
   };
   if (exactColors[rgb]) {
     return exactColors[rgb];
@@ -27,17 +27,16 @@ const rgbToColorName = (rgb) => {
   else if (r < 100 && g > 100 && b < 150) return 'green';
   else if (r < 100 && g < 150 && b > 150) return 'blue';
   else if (r > 200 && g > 150 && b < 100) return 'yellow';
-  else if (r > 100 && g < 100 && b > 150) return 'purple';  // 紫色の判定を追加
+  else if (r > 100 && g < 100 && b > 150) return 'purple';
   return 'red';
 };
-
 const getColorFromType = (type) => {
   const typeToColor = {
     [Types.NUMBER]: 'green',
     [Types.BOOLEAN]: 'yellow',
     [Types.STRING]: 'blue',
     [Types.SYMBOL]: 'red',
-    [Types.VECTOR]: 'purple'  // LIST から VECTOR に変更
+    [Types.VECTOR]: 'purple'
   };
   return typeToColor[type] || 'red';
 };
@@ -84,45 +83,30 @@ const findSubsetProductMatches = (factors, dotValues) => {
 const isMobileDevice = () => {
   return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android/i.test(navigator.userAgent);
 };
-// utils.js
 const focusWithoutKeyboard = (element, callback) => {
   if (!element) {
-    if (callback) callback(); // 要素がなければコールバックだけ実行（あれば）
+    if (callback) callback();
     return;
   }
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
-  const originalInputMode = element.getAttribute('inputmode'); // 元のinputmodeを記憶
-
+  const originalInputMode = element.getAttribute('inputmode');
   element.setAttribute('readonly', 'readonly');
-  // inputmode="none" を設定してキーボード出現をさらに抑制しようと試みる
-  // (isKeyboardModeがfalseの時だけ呼び出される想定なので、ここでは常にnoneで良いはず)
   element.setAttribute('inputmode', 'none');
   element.focus();
-
   setTimeout(() => {
     element.removeAttribute('readonly');
-    // inputmodeを元に戻すか、noneのままにするかは呼び出し側のisKeyboardModeの状態によるが、
-    // focusWithoutKeyboard は「キーボードなし」が目的なので、ここでは変更しない方が安全かもしれません。
-    // もし戻す場合は:
-    // if (originalInputMode) {
-    //   element.setAttribute('inputmode', originalInputMode);
-    // } else {
-    //   element.removeAttribute('inputmode');
-    // }
-
     if (callback) {
-      callback(); // readonly 解除後にコールバックを実行
+      callback();
     }
     window.scrollTo(scrollX, scrollY);
-  }, 10); // 10msの遅延。環境によって調整が必要な場合あり
+  }, 10);
 };
-// utils.js
 const focusWithKeyboard = (element) => {
   if (!element) return;
-  element.setAttribute('inputmode', 'text'); // ★ inputmode="text" を明示的に設定
-  element.removeAttribute('readonly');    // readonly属性は確実に除去
-  element.focus();                       // フォーカスを当てる
+  element.setAttribute('inputmode', 'text');
+  element.removeAttribute('readonly');
+  element.focus();
 };
 const focusOnInput = () => {
   const editor = elements.input;

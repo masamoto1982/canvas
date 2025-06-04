@@ -118,10 +118,8 @@ const addDetectedDot = (dot) => {
   const dotX = rect.left + rect.width / 2;
   const dotY = rect.top + rect.height / 2;
   if (drawState.lastDetectedDot) {
-    // getCurrentColor() の代わりに、現在のアクティブな色を取得
     const activeColorBtn = document.querySelector('.color-btn.active');
     const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
-    
     drawLineBetweenDots(
       drawState.lastDotX - elements.d2dArea.getBoundingClientRect().left,
       drawState.lastDotY - elements.d2dArea.getBoundingClientRect().top,
@@ -247,10 +245,8 @@ const handlePointerMove = (e) => {
       }
     }
     if (drawState.isDrawingMode && drawState.lastDetectedDot) {
-      // getCurrentColor() の代わりに、現在のアクティブな色を取得
       const activeColorBtn = document.querySelector('.color-btn.active');
       const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
-      
       const lineCanvas = elements.lineCanvas;
       if (lineCanvas) {
         const ctx = lineCanvas.getContext('2d');

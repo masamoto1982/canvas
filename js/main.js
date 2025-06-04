@@ -107,17 +107,6 @@ const setupMultiTouchSupport = () => {
 };
 const addColorButtonStyles = () => {
   const styleElem = document.createElement('style');
- /*  styleElem.textContent = `
-    #color-yellow, #color-cyan.active { background-color: #FFFFFF; color: yellow; border: 1px solid yellow; }
-    #color-yellow.active { background-color: yellow; }
-    #clear-button { background-color: red; }
-    #clear-button:hover { background-color: red; }
-    #clear-button:active { background-color: red; }
-    #execute-button { background-color: green; }
-    #execute-button:hover { background-color: green; }
-    #execute-button:active { background-color: green; }
-    #d2d-input { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; touch-action: none; }
-  `; */
   document.head.appendChild(styleElem);
 };
 const initResponsiveLayout = () => {

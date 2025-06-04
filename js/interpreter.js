@@ -1,5 +1,11 @@
 const interpreter = (() => {
   const environment = { variables: {}, functions: {} };
+  const cloneEnvironment = (env) => {
+    return {
+      variables: { ...env.variables },
+      functions: { ...env.functions }
+    };
+  };
   const NIL = { type: Types.NIL, value: null };
   const isNil = (value) => {
     return value && value.type === Types.NIL;
@@ -184,36 +190,36 @@ const interpreter = (() => {
           return result;
         }
         case 'MAP': {
-  const [funcName, vector] = args;
-  console.log('MAP called with:', funcName, vector);
-  if (!Array.isArray(vector)) {
-    throw new Error('MAP expects a vector as second argument');
-  }
-  console.log('funcName type:', typeof funcName);
-  console.log('funcName value:', funcName);
-  console.log('Available functions:', Object.keys(env.functions));
-  if (typeof funcName === 'string' && funcName in env.functions) {
-    const func = env.functions[funcName];
-    console.log('Function found:', func);
-    const result = vector.map((item, index) => {
-      console.log(`Processing item ${index}:`, item);
-      if (isNil(item)) {
-        console.log('Item is nil, returning NIL');
-        return NIL;
-      }
-      const newLocalEnv = {};
-      newLocalEnv[func.params[0]] = item;
-      console.log('Local environment:', newLocalEnv);
-      const evalResult = evaluate(func.body, env, newLocalEnv);
-      console.log('Evaluation result:', evalResult);
-      return evalResult;
-    });
-    console.log('MAP result:', result);
-    return result;
-  } else {
-    throw new Error(`MAP: Undefined function ${funcName}`);
-  }
-}
+          const [funcName, vector] = args;
+          console.log('MAP called with:', funcName, vector);
+          if (!Array.isArray(vector)) {
+            throw new Error('MAP expects a vector as second argument');
+          }
+          console.log('funcName type:', typeof funcName);
+          console.log('funcName value:', funcName);
+          console.log('Available functions:', Object.keys(env.functions));
+          if (typeof funcName === 'string' && funcName in env.functions) {
+            const func = env.functions[funcName];
+            console.log('Function found:', func);
+            const result = vector.map((item, index) => {
+              console.log(`Processing item ${index}:`, item);
+              if (isNil(item)) {
+                console.log('Item is nil, returning NIL');
+                return NIL;
+              }
+              const newLocalEnv = {};
+              newLocalEnv[func.params[0]] = item;
+              console.log('Local environment:', newLocalEnv);
+              const evalResult = evaluate(func.body, env, newLocalEnv);
+              console.log('Evaluation result:', evalResult);
+              return evalResult;
+            });
+            console.log('MAP result:', result);
+            return result;
+          } else {
+            throw new Error(`MAP: Undefined function ${funcName}`);
+          }
+        }
         case 'FILTER': {
           const [pred, vector] = args;
           if (!Array.isArray(vector)) {
@@ -405,11 +411,18 @@ const interpreter = (() => {
     }
   };
   const executeProgram = (program) => {
-    let result;
-    program.forEach(expr => {
-      result = evaluate(expr);
-    });
-    return result;
+    const backupEnv = cloneEnvironment(environment);
+    try {
+      let result;
+      program.forEach(expr => {
+        result = evaluate(expr);
+      });
+      return result;
+    } catch (error) {
+      environment.variables = backupEnv.variables;
+      environment.functions = backupEnv.functions;
+      throw error;
+    }
   };
   const resetEnvironment = () => {
     environment.variables = {};

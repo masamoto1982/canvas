@@ -4,26 +4,24 @@ const Types = {
   STRING: 'string',
   SYMBOL: 'symbol',
   VECTOR: 'vector',
-  NIL: 'nil',  // 新しい型を追加
+  NIL: 'nil',
   UNDEFINED: 'undefined'
 };
-
 const ColorTypes = {
   'green': Types.NUMBER,
   'yellow': Types.BOOLEAN,
   'blue': Types.STRING,
   'red': Types.SYMBOL,
   'purple': Types.VECTOR,
-  'gray': Types.NIL  // グレーをnil型に（または別の色を選択）
+  'gray': Types.NIL
 };
-
 const colorCodes = {
   'red': '#FF4B00',
   'green': '#03AF7A',
   'blue': '#005AFF',
   'yellow': '#FFC107',
   'purple': '#9C27B0',
-  'gray': '#9E9E9E'  // グレーを追加
+  'gray': '#9E9E9E'
 };
 const CONFIG = {
   sensitivity: {
