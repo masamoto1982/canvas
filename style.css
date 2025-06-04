@@ -78,6 +78,11 @@ section:last-child {
     transition: background-color 0.3s;
 }
 
+#output.error {
+    background-color: #fee;
+    transition: background-color 0.3s;
+}
+
 #input-container {
     display: flex;
     flex-direction: column;
