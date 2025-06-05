@@ -429,43 +429,52 @@ const interpreter = (() => {
     environment.functions = {};
   };
   return {
-    execute: (editor) => {
-      try {
-        const tokens = tokenize(editor);
-        if (tokens.length === 0) return "Empty input";
-        tokens.forEach(token => {
-          if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
-            return;
-          }
-          if (token.value === 'NIL') {
-            return;
-          }
-          if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
-            if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
-              if (token.color !== 'green'){
-                throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
-              }
-            }
-          }
-          if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) &&
-              !['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE'].includes(token.value) &&
-              token.color !== 'red') {
-            throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
-          }
-          if (['(', ')'].includes(token.value) && token.color !== 'red') {
-            throw new Error(`Type Error: Parentheses must be Symbol type (red), found ${token.color} for '${token.value}'`);
-          }
-          if (['[', ']'].includes(token.value) && token.color !== 'purple') {
-            throw new Error(`Type Error: Vector brackets must be Vector type (purple), found ${token.color} for '${token.value}'`);
-          }
-        });
-        const ast = parse(tokens);
-        const result = executeProgram(ast);
-        return formatValue(result);
-      } catch (err) {
-        return `Error: ${err.message}`;
+    // js/interpreter.js の execute メソッド内の型チェック部分を修正
+execute: (editor) => {
+  try {
+    const tokens = tokenize(editor);
+    if (tokens.length === 0) return "Empty input";
+    tokens.forEach(token => {
+      if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
+        return;
       }
-    },
+      if (token.value === 'NIL') {
+        return;
+      }
+      if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
+        if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
+          if (token.color !== 'green'){
+            throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
+          }
+        }
+      }
+      if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) &&
+          !['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE'].includes(token.value) &&
+          token.color !== 'red') {
+        throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
+      }
+      if (['(', ')'].includes(token.value) && token.color !== 'red') {
+        throw new Error(`Type Error: Parentheses must be Symbol type (red), found ${token.color} for '${token.value}'`);
+      }
+      if (['[', ']'].includes(token.value) && token.color !== 'purple') {
+        throw new Error(`Type Error: Vector brackets must be Vector type (purple), found ${token.color} for '${token.value}'`);
+      }
+      // booleanの型チェックを追加
+      if (['true', 'false'].includes(token.value.toLowerCase()) && token.color !== 'cyan') {
+        throw new Error(`Type Error: Boolean literals must be Boolean type (cyan), found ${token.color} for '${token.value}'`);
+      }
+      // NILの型チェックを追加
+      if (token.value === 'NIL' && token.color !== 'orange') {
+        throw new Error(`Type Error: NIL must be Nil type (orange), found ${token.color} for '${token.value}'`);
+      }
+    });
+    const ast = parse(tokens);
+    const result = executeProgram(ast);
+    return formatValue(result);
+  } catch (err) {
+    return `Error: ${err.message}`;
+  }
+},
     reset: resetEnvironment,
     getEnvironment: () => ({ ...environment })
   };
