@@ -109,19 +109,19 @@ section:last-child {
     justify-content: center;
     gap: 10px;
     margin: 10px 0;
+    flex-wrap: wrap;
 }
 
 /* 文字色切り替えボタンの共通スタイル */
 .color-btn {
     padding: 8px 12px;
-    /* border: none; */ /* 型に応じた枠線を設定するため変更 */
     font-size: 14px;
     cursor: pointer;
     transition: all 0.2s;
-    background-color: #ffffff; /* 背景色を白に変更 */
-    border-radius: 0; /* 角の丸みをなくす */
-    border-width: 1px; /* 枠線の太さを指定 */
-    border-style: solid; /* 枠線の種類を指定 */
+    background-color: #ffffff;
+    border-radius: 0;
+    border-width: 1px;
+    border-style: solid;
 }
 
 .color-btn.active {
@@ -129,58 +129,74 @@ section:last-child {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* 赤色の型ボタン (例: boolean) */
+/* 赤色の型ボタン (symbol) */
 #color-red {
-    color: #FF4B00; /* 文字色を型に応じた色に */
-    border-color: #FF4B00; /* 枠線を型に応じた色に */
+    color: #FF4B00;
+    border-color: #FF4B00;
 }
 
 #color-red.active {
-    background-color: #ffebee; /* アクティブ時の背景色はごく薄い赤 */
-    /* border-color: #e53935; */ /* 必要であればアクティブ時の枠線色を濃くする */
+    background-color: #ffebee;
 }
 
-/* 緑色の型ボタン (例: number) */
+/* 緑色の型ボタン (number) */
 #color-green {
     color: #03AF7A;
     border-color: #03AF7A;
 }
 
 #color-green.active {
-    background-color: #e8f5e9; /* アクティブ時の背景色はごく薄い緑 */
-    /* border-color: #008e60; */
+    background-color: #e8f5e9;
 }
 
-/* 青色の型ボタン (例: string) */
+/* 青色の型ボタン (string) */
 #color-blue {
     color: #005AFF;
     border-color: #005AFF;
 }
 
 #color-blue.active {
-    background-color: #e3f2fd; /* アクティブ時の背景色はごく薄い青 */
-    /* border-color: #0044cc; */
+    background-color: #e3f2fd;
 }
 
-/* 黄色の型ボタン (例: symbol - 旧cyanから変更を想定) */
-#color-yellow { /* IDを #color-cyan から #color-yellow に変更 */
-    color: #FFC107; /* 仮の黄色 (Amber) */
-    border-color: #FFC107; /* 仮の黄色 (Amber) */
+/* シアン色の型ボタン (boolean) */
+#color-cyan {
+    color: #4DC4FF;
+    border-color: #4DC4FF;
 }
 
-#color-yellow.active {
-    background-color: #fff9c4; /* アクティブ時の背景色はごく薄い黄色 */
-    /* border-color: #f9a825; */
+#color-cyan.active {
+    background-color: #e0f7ff;
 }
 
-/* 紫色の型ボタンを追加 */
+/* 紫色の型ボタン (vector) */
 #color-purple {
     color: #9C27B0;
     border-color: #9C27B0;
 }
 
 #color-purple.active {
-    background-color: #f3e5f5; /* アクティブ時の背景色はごく薄い紫 */
+    background-color: #f3e5f5;
+}
+
+/* オレンジ色の型ボタン (nil) */
+#color-orange {
+    color: #F6AA00;
+    border-color: #F6AA00;
+}
+
+#color-orange.active {
+    background-color: #fff8e1;
+}
+
+/* 黄色の型ボタン (comment) */
+#color-yellow {
+    color: #FFF100;
+    border-color: #FFF100;
+}
+
+#color-yellow.active {
+    background-color: #fffde7;
 }
 
 #upper-half {
@@ -297,7 +313,7 @@ section:last-child {
 }
 
 .special-button:active {
-    background-color: #9ca3af; /* これは汎用的なspecial-buttonのactiveなので維持 */
+    background-color: #9ca3af;
 }
 
 .special-button.long-pressed {
@@ -349,10 +365,10 @@ section:last-child {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #FF4B00; /* 背景色を赤に */
-    color: white; /* 文字色を白に */
-    border: none; /* 枠線なし（お好みで調整可） */
-    border-radius: 4px; /* 角の丸みを維持 */
+    background-color: #FF4B00;
+    color: white;
+    border: none;
+    border-radius: 4px;
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
@@ -360,11 +376,11 @@ section:last-child {
 }
 
 #clear-button:hover {
-    background-color: #e04300; /* 少し濃い赤 */
+    background-color: #e04300;
 }
 
 #clear-button:active {
-    background-color: #c23a00; /* さらに濃い赤 */
+    background-color: #c23a00;
 }
 
 /* 実行ボタンの新しいスタイル */
@@ -372,10 +388,10 @@ section:last-child {
     display: block;
     width: 100px;
     padding: 10px;
-    background-color: #03AF7A; /* 背景色を緑に */
-    color: white; /* 文字色を白に */
-    border: none; /* 枠線なし（お好みで調整可） */
-    border-radius: 4px; /* 角の丸みを維持 */
+    background-color: #03AF7A;
+    color: white;
+    border: none;
+    border-radius: 4px;
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
@@ -383,11 +399,11 @@ section:last-child {
 }
 
 #execute-button:hover {
-    background-color: #028e63; /* 少し濃い緑 */
+    background-color: #028e63;
 }
 
 #execute-button:active {
-    background-color: #017551; /* さらに濃い緑 */
+    background-color: #017551;
 }
 
 .recognition-feedback {
@@ -438,41 +454,41 @@ section:last-child {
 }
 
 .hide {
-    display: block; /* 初期表示は block (JSで制御される想定) */
+    display: block;
 }
 
 #output,
 #txt-input {
-    height: 200px; /* デフォルトの高さを少し調整 */
+    height: 200px;
 }
 
 @media (max-width: 768px) {
     #mobile-container {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 80px); /* ヘッダー等の高さを考慮したビューポートの高さ */
+        height: calc(100vh - 80px);
     }
 
     #upper-half {
-        flex: 1; /* 利用可能なスペースを埋める */
+        flex: 1;
         display: flex;
         flex-direction: column;
-        overflow: hidden; /* 内容がはみ出た場合にスクロールさせるため */
+        overflow: hidden;
     }
 
     .input-section,
     .output-section {
-        flex: 1; /* outputとinputが同じ高さになるように */
+        flex: 1;
         transition: transform 0.3s ease;
         width: 100%;
-        display: flex; /* flexbox を使用して内部要素を管理 */
-        flex-direction: column; /* 内部要素を縦に並べる */
+        display: flex;
+        flex-direction: column;
     }
     
-    #txt-input.editor, #output { /* #txt-input を .editor と #output に適用 */
-      flex-grow: 1; /* テキストエリアが利用可能なスペースを埋めるように */
-      min-height: 100px; /* モバイルでの最小高さを指定 */
-      height: auto; /* 具体的な高さ指定をautoにし、flex-growで調整 */
+    #txt-input.editor, #output {
+      flex-grow: 1;
+      min-height: 100px;
+      height: auto;
     }
 
     .hide {
@@ -480,11 +496,11 @@ section:last-child {
     }
 
     #d2d-section {
-        height: 30vh; /* d2dセクションの高さ */
-        min-height: 280px; /* d2dセクションの最小高さ（ボタン等が潰れないように） */
+        height: 30vh;
+        min-height: 280px;
     }
 
     body {
-        overflow-x: hidden; /* 横スクロールを禁止 */
+        overflow-x: hidden;
     }
 }
