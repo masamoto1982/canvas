@@ -1,10 +1,13 @@
+// js/utils.js の rgbToColorName 関数を修正
 const rgbToColorName = (rgb) => {
   const exactColors = {
     '#FF4B00': 'red',
     '#03AF7A': 'green',
     '#005AFF': 'blue',
-    '#FFC107': 'yellow',
+    '#4DC4FF': 'cyan',
     '#9C27B0': 'purple',
+    '#F6AA00': 'orange',
+    '#FFF100': 'yellow',
   };
   if (exactColors[rgb]) {
     return exactColors[rgb];
@@ -23,11 +26,14 @@ const rgbToColorName = (rgb) => {
     g = parseInt(hex.substr(2, 2), 16);
     b = parseInt(hex.substr(4, 2), 16);
   }
+  // 色の判定ロジックを更新
   if (r > 200 && g < 150 && b < 100) return 'red';
   else if (r < 100 && g > 100 && b < 150) return 'green';
   else if (r < 100 && g < 150 && b > 150) return 'blue';
-  else if (r > 200 && g > 150 && b < 100) return 'yellow';
+  else if (r < 150 && g > 150 && b > 200) return 'cyan';
   else if (r > 100 && g < 100 && b > 150) return 'purple';
+  else if (r > 200 && g > 150 && b < 50) return 'orange';
+  else if (r > 200 && g > 200 && b < 50) return 'yellow';
   return 'red';
 };
 const getColorFromType = (type) => {
