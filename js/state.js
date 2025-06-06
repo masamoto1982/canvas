@@ -10,11 +10,13 @@ const elements = {
   outputSection: null,
   textSection: null
 };
+
 const drawState = {
   isActive: false,
   detectedDots: new Set(),
   detectedDotsList: [],
-  totalValue: 1,
+  currentStrokeValue: 0,
+  strokeValues: [],
   startX: 0,
   startY: 0,
   lastStrokeTime: 0,
@@ -33,6 +35,7 @@ const drawState = {
   lastDotY: 0,
   currentLineColor: null
 };
+
 const specialButtonState = {
   lastClickTime: 0,
   clickCount: 0,
@@ -40,6 +43,7 @@ const specialButtonState = {
   clickTimer: null,
   doubleClickDelay: CONFIG.timing.doubleTapDelay
 };
+
 const keyState = {
   deletePressed: false,
   spacePressed: false,
