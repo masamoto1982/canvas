@@ -91,214 +91,234 @@ const interpreter = (() => {
       return evaluate(func.body, env, newLocalEnv);
     }
     if (ast.type === 'builtin_call') {
-      const args = ast.args.map(arg => evaluate(arg, env, localEnv));
-      switch (ast.name) {
-        case '@': {
-          const [vector, index] = args;
-          if (!Array.isArray(vector)) {
-            throw new Error('@ expects a vector as first argument');
-          }
-          let idx;
-          if (Fraction.isValidNumber(index)) {
-            idx = Math.floor(index.valueOf());
-          } else if (typeof index === 'number') {
-            idx = Math.floor(index);
-          } else {
-            throw new Error('@ expects a numeric index as second argument');
-          }
-          if (idx < 0) {
-            idx = vector.length + idx;
-          }
-          if (idx < 0 || idx >= vector.length) {
-            throw new Error(`Index ${index} out of bounds for vector of length ${vector.length}`);
-          }
-          return vector[idx];
+  // MAP/FILTERは特別な処理が必要
+  if (ast.name === 'MAP' || ast.name === 'FILTER') {
+    // 第1引数は関数名として文字列のまま使用
+    const funcName = ast.args[0];  // "DOUBLE" のような文字列
+    // 第2引数は評価してベクトルを取得
+    const vector = evaluate(ast.args[1], env, localEnv);
+    
+    if (ast.name === 'MAP') {
+      console.log('MAP called with function:', funcName, 'and vector:', vector);
+      if (!Array.isArray(vector)) {
+        throw new Error('MAP expects a vector as second argument');
+      }
+      
+      if (typeof funcName === 'string' && funcName in env.functions) {
+        const func = env.functions[funcName];
+        console.log('Function found:', func);
+        if (func.params.length !== 1) {
+          throw new Error(`MAP: Function ${funcName} must take exactly one parameter`);
         }
-        case 'LEN': {
-          const [vector] = args;
-          if (!Array.isArray(vector)) {
-            throw new Error('LEN expects a vector as argument');
+        const result = vector.map((item, index) => {
+          console.log(`Processing item ${index}:`, item);
+          if (isNil(item)) {
+            console.log('Item is nil, returning NIL');
+            return NIL;
           }
-          return Fraction(vector.length, 1);
-        }
-        case 'TAKE': {
-          const [n, vector] = args;
-          if (!Array.isArray(vector)) {
-            throw new Error('TAKE expects a vector as second argument');
-          }
-          const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
-          if (count < 0) {
-            return vector.slice(count);
-          }
-          return vector.slice(0, count);
-        }
-        case 'DROP': {
-          const [n, vector] = args;
-          if (!Array.isArray(vector)) {
-            throw new Error('DROP expects a vector as second argument');
-          }
-          const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
-          if (count < 0) {
-            return vector.slice(0, count);
-          }
-          return vector.slice(count);
-        }
-        case 'FOLD': {
-          const [op, vector] = args;
-          if (!Array.isArray(vector)) {
-            throw new Error('FOLD expects a vector as second argument');
-          }
-          let operator;
-          if (typeof op === 'string') {
-            operator = op;
-          } else if (typeof op === 'object' && op.type === 'operator') {
-            operator = op.value;
-          } else {
-            operator = op;
-          }
-          const nonNilValues = vector.filter(v => !isNil(v));
-          if (nonNilValues.length === 0) {
-            throw new Error('Cannot fold empty vector or vector with only nil values');
-          }
-          let result = nonNilValues[0];
-          for (let i = 1; i < nonNilValues.length; i++) {
-            if (operator === '+') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-                throw new Error('FOLD with + requires numeric vector');
-              }
-              result = result.add(nonNilValues[i], false);
-            } else if (operator === '-') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-                throw new Error('FOLD with - requires numeric vector');
-              }
-              result = result.subtract(nonNilValues[i], false);
-            } else if (operator === '*') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-                throw new Error('FOLD with * requires numeric vector');
-              }
-              result = result.multiply(nonNilValues[i], false);
-            } else if (operator === '/') {
-              if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-                throw new Error('FOLD with / requires numeric vector');
-              }
-              if (nonNilValues[i].numerator === 0) throw new Error('Division by zero');
-              result = result.divide(nonNilValues[i], false);
-            } else {
-              throw new Error(`FOLD: Unknown operator ${operator}`);
-            }
-          }
-          return result;
-        }
-        case 'MAP': {
-          const [funcName, vector] = args;
-          console.log('MAP called with:', funcName, vector);
-          if (!Array.isArray(vector)) {
-            throw new Error('MAP expects a vector as second argument');
-          }
-          console.log('funcName type:', typeof funcName);
-          console.log('funcName value:', funcName);
-          console.log('Available functions:', Object.keys(env.functions));
-          if (typeof funcName === 'string' && funcName in env.functions) {
-            const func = env.functions[funcName];
-            console.log('Function found:', func);
-            const result = vector.map((item, index) => {
-              console.log(`Processing item ${index}:`, item);
-              if (isNil(item)) {
-                console.log('Item is nil, returning NIL');
-                return NIL;
-              }
-              const newLocalEnv = {};
-              newLocalEnv[func.params[0]] = item;
-              console.log('Local environment:', newLocalEnv);
-              const evalResult = evaluate(func.body, env, newLocalEnv);
-              console.log('Evaluation result:', evalResult);
-              return evalResult;
-            });
-            console.log('MAP result:', result);
-            return result;
-          } else {
-            throw new Error(`MAP: Undefined function ${funcName}`);
-          }
-        }
-        case 'FILTER': {
-          const [pred, vector] = args;
-          if (!Array.isArray(vector)) {
-            throw new Error('FILTER expects a vector as second argument');
-          }
-          return vector.filter(item => {
-            if (typeof pred === 'string' && pred in env.functions) {
-              const callAst = {
-                type: 'function_call',
-                name: pred,
-                args: [{ type: 'value', value: item }]
-              };
-              const result = evaluate(callAst, env, localEnv);
-              return result === true;
-            } else {
-              throw new Error('FILTER expects a predicate function as first argument');
-            }
-          });
-        }
-        case 'DOT': {
-          const [v1, v2] = args;
-          if (!Array.isArray(v1) || !Array.isArray(v2)) {
-            throw new Error('DOT expects two vectors as arguments');
-          }
-          if (v1.length !== v2.length) {
-            throw new Error('DOT product requires vectors of same length');
-          }
-          let result = Fraction(0, 1);
-          for (let i = 0; i < v1.length; i++) {
-            if (isNil(v1[i]) || isNil(v2[i])) continue;
-            if (!Fraction.isValidNumber(v1[i]) || !Fraction.isValidNumber(v2[i])) {
-              throw new Error('DOT product requires numeric vectors');
-            }
-            result = result.add(v1[i].multiply(v2[i]));
-          }
-          return result;
-        }
-        case 'SHAPE': {
-          const [vector] = args;
-          if (!Array.isArray(vector)) {
-            return [];
-          }
-          return getShape(vector).map(n => Fraction(n, 1));
-        }
-        case 'RESHAPE': {
-          const [shape, vector] = args;
-          if (!Array.isArray(shape)) {
-            throw new Error('RESHAPE expects a shape vector as first argument');
-          }
-          const flat = Array.isArray(vector) ? flatten(vector) : [vector];
-          const dims = shape.map(d => Fraction.isValidNumber(d) ? d.valueOf() : d);
-          if (dims.length === 1) {
-            const size = dims[0];
-            const result = [];
-            for (let i = 0; i < size; i++) {
-              result.push(flat[i % flat.length]);
-            }
-            return result;
-          }
-          if (dims.length === 2) {
-            const [rows, cols] = dims;
-            const result = [];
-            let idx = 0;
-            for (let i = 0; i < rows; i++) {
-              const row = [];
-              for (let j = 0; j < cols; j++) {
-                row.push(flat[idx % flat.length]);
-                idx++;
-              }
-              result.push(row);
-            }
-            return result;
-          }
-          throw new Error('RESHAPE currently supports up to 2 dimensions');
-        }
-        default:
-          throw new Error(`Unknown builtin function: ${ast.name}`);
+          const newLocalEnv = {};
+          newLocalEnv[func.params[0]] = item;
+          console.log('Local environment:', newLocalEnv);
+          const evalResult = evaluate(func.body, env, newLocalEnv);
+          console.log('Evaluation result:', evalResult);
+          return evalResult;
+        });
+        console.log('MAP result:', result);
+        return result;
+      } else {
+        throw new Error(`MAP: Undefined function ${funcName}`);
       }
     }
+    
+    if (ast.name === 'FILTER') {
+      console.log('FILTER called with function:', funcName, 'and vector:', vector);
+      if (!Array.isArray(vector)) {
+        throw new Error('FILTER expects a vector as second argument');
+      }
+      
+      if (typeof funcName === 'string' && funcName in env.functions) {
+        const func = env.functions[funcName];
+        console.log('Function found:', func);
+        if (func.params.length !== 1) {
+          throw new Error(`FILTER: Function ${funcName} must take exactly one parameter`);
+        }
+        return vector.filter((item, index) => {
+          console.log(`Filtering item ${index}:`, item);
+          if (isNil(item)) {
+            return false;  // NILは除外
+          }
+          const newLocalEnv = {};
+          newLocalEnv[func.params[0]] = item;
+          const result = evaluate(func.body, env, newLocalEnv);
+          console.log('Filter result:', result);
+          return result === true;
+        });
+      } else {
+        throw new Error(`FILTER: Undefined function ${funcName}`);
+      }
+    }
+  } else {
+    // その他のビルトイン関数は通常通り引数を評価
+    const args = ast.args.map(arg => evaluate(arg, env, localEnv));
+    
+    switch (ast.name) {
+      case '@': {
+        const [vector, index] = args;
+        if (!Array.isArray(vector)) {
+          throw new Error('@ expects a vector as first argument');
+        }
+        let idx;
+        if (Fraction.isValidNumber(index)) {
+          idx = Math.floor(index.valueOf());
+        } else if (typeof index === 'number') {
+          idx = Math.floor(index);
+        } else {
+          throw new Error('@ expects a numeric index as second argument');
+        }
+        if (idx < 0) {
+          idx = vector.length + idx;
+        }
+        if (idx < 0 || idx >= vector.length) {
+          throw new Error(`Index ${index} out of bounds for vector of length ${vector.length}`);
+        }
+        return vector[idx];
+      }
+      case 'LEN': {
+        const [vector] = args;
+        if (!Array.isArray(vector)) {
+          throw new Error('LEN expects a vector as argument');
+        }
+        return Fraction(vector.length, 1);
+      }
+      case 'TAKE': {
+        const [n, vector] = args;
+        if (!Array.isArray(vector)) {
+          throw new Error('TAKE expects a vector as second argument');
+        }
+        const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+        if (count < 0) {
+          return vector.slice(count);
+        }
+        return vector.slice(0, count);
+      }
+      case 'DROP': {
+        const [n, vector] = args;
+        if (!Array.isArray(vector)) {
+          throw new Error('DROP expects a vector as second argument');
+        }
+        const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+        if (count < 0) {
+          return vector.slice(0, count);
+        }
+        return vector.slice(count);
+      }
+      case 'FOLD': {
+        const [op, vector] = args;
+        if (!Array.isArray(vector)) {
+          throw new Error('FOLD expects a vector as second argument');
+        }
+        let operator;
+        if (typeof op === 'string') {
+          operator = op;
+        } else if (typeof op === 'object' && op.type === 'operator') {
+          operator = op.value;
+        } else {
+          operator = op;
+        }
+        const nonNilValues = vector.filter(v => !isNil(v));
+        if (nonNilValues.length === 0) {
+          throw new Error('Cannot fold empty vector or vector with only nil values');
+        }
+        let result = nonNilValues[0];
+        for (let i = 1; i < nonNilValues.length; i++) {
+          if (operator === '+') {
+            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+              throw new Error('FOLD with + requires numeric vector');
+            }
+            result = result.add(nonNilValues[i], false);
+          } else if (operator === '-') {
+            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+              throw new Error('FOLD with - requires numeric vector');
+            }
+            result = result.subtract(nonNilValues[i], false);
+          } else if (operator === '*') {
+            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+              throw new Error('FOLD with * requires numeric vector');
+            }
+            result = result.multiply(nonNilValues[i], false);
+          } else if (operator === '/') {
+            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+              throw new Error('FOLD with / requires numeric vector');
+            }
+            if (nonNilValues[i].numerator === 0) throw new Error('Division by zero');
+            result = result.divide(nonNilValues[i], false);
+          } else {
+            throw new Error(`FOLD: Unknown operator ${operator}`);
+          }
+        }
+        return result;
+      }
+      case 'DOT': {
+        const [v1, v2] = args;
+        if (!Array.isArray(v1) || !Array.isArray(v2)) {
+          throw new Error('DOT expects two vectors as arguments');
+        }
+        if (v1.length !== v2.length) {
+          throw new Error('DOT product requires vectors of same length');
+        }
+        let result = Fraction(0, 1);
+        for (let i = 0; i < v1.length; i++) {
+          if (isNil(v1[i]) || isNil(v2[i])) continue;
+          if (!Fraction.isValidNumber(v1[i]) || !Fraction.isValidNumber(v2[i])) {
+            throw new Error('DOT product requires numeric vectors');
+          }
+          result = result.add(v1[i].multiply(v2[i]));
+        }
+        return result;
+      }
+      case 'SHAPE': {
+        const [vector] = args;
+        if (!Array.isArray(vector)) {
+          return [];
+        }
+        return getShape(vector).map(n => Fraction(n, 1));
+      }
+      case 'RESHAPE': {
+        const [shape, vector] = args;
+        if (!Array.isArray(shape)) {
+          throw new Error('RESHAPE expects a shape vector as first argument');
+        }
+        const flat = Array.isArray(vector) ? flatten(vector) : [vector];
+        const dims = shape.map(d => Fraction.isValidNumber(d) ? d.valueOf() : d);
+        if (dims.length === 1) {
+          const size = dims[0];
+          const result = [];
+          for (let i = 0; i < size; i++) {
+            result.push(flat[i % flat.length]);
+          }
+          return result;
+        }
+        if (dims.length === 2) {
+          const [rows, cols] = dims;
+          const result = [];
+          let idx = 0;
+          for (let i = 0; i < rows; i++) {
+            const row = [];
+            for (let j = 0; j < cols; j++) {
+              row.push(flat[idx % flat.length]);
+              idx++;
+            }
+            result.push(row);
+          }
+          return result;
+        }
+        throw new Error('RESHAPE currently supports up to 2 dimensions');
+      }
+      default:
+        throw new Error(`Unknown builtin function: ${ast.name}`);
+    }
+  }
+}
     if (ast.type === 'operation') {
       const left = evaluate(ast.left, env, localEnv);
       const right = evaluate(ast.right, env, localEnv);

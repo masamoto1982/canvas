@@ -39,6 +39,13 @@ const parseBuiltinArgs = (funcName, expectedCount) => {
       arg = { type: 'operator', value: consume().value };
       console.log(`Parsed as operator: ${arg.value}`);
     }
+    else if ((funcName === 'MAP' || funcName === 'FILTER') && i === 0 && 
+             token.color === 'red' && /^[A-Z][A-Z0-9_]*$/.test(token.value) && 
+             !isBuiltinFunction(token.value)) {
+      // MAP/FILTERの第1引数は関数名として扱う
+      arg = consume().value;  // 文字列として直接取得
+      console.log(`Parsed as function name: ${arg}`);
+    }
     else if (token.color === 'red' && /^[A-Z][A-Z0-9_]*$/.test(token.value) && !isBuiltinFunction(token.value)) {
       arg = { type: 'variable', name: consume().value };
       console.log(`Parsed as variable: ${arg.name}`);
