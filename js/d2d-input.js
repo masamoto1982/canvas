@@ -10,7 +10,9 @@ const resetDrawState = (keepActive = false) => {
     drawState.detectedDots.forEach(dot => dot.classList.remove('detected'));
     drawState.detectedDots.clear();
   }
-  drawState.totalValue = 1;
+  drawState.sequenceString = ''; // 新規追加
+  drawState.previousDotNumber = null; // 新規追加
+  drawState.currentStrokeStart = null; // 新規追加
   drawState.currentStrokeDetected = false;
   drawState.hasMoved = false;
   drawState.isDrawingMode = false;
@@ -36,31 +38,28 @@ const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => {
   ctx.lineTo(toX, toY);
   ctx.stroke();
 };
-const recognizeLetterWithErrorCorrection = (totalValue) => {
-  if (letterPatterns[totalValue]) {
-    console.log(`完全一致: ${totalValue} → ${letterPatterns[totalValue]}`);
-    return letterPatterns[totalValue];
+
+// 新しい認識関数（書き順ベース）
+const recognizeSequencePattern = (sequence) => {
+  console.log(`認識試行: ${sequence}`);
+  
+  // 完全一致を優先
+  if (sequencePatterns[sequence]) {
+    console.log(`完全一致: ${sequence} → ${sequencePatterns[sequence]}`);
+    return sequencePatterns[sequence];
   }
-  if (complexPatterns && complexPatterns[totalValue]) {
-    console.log(`複合パターン一致: ${totalValue} → ${complexPatterns[totalValue]}`);
-    return complexPatterns[totalValue];
-  }
-  const factors = getPrimeFactors(totalValue);
-  const validFactors = factors.filter(f => dotValues.includes(f));
-  if (validFactors.length > 0) {
-    const correctedValue = validFactors.reduce((a, b) => a * b, 1);
-    if (letterPatterns[correctedValue]) {
-      console.log(`誤り訂正成功: ${totalValue} → ${correctedValue} → ${letterPatterns[correctedValue]}`);
-      return letterPatterns[correctedValue];
+  
+  // 部分一致を試みる（補助パターン用）
+  for (const [pattern, char] of Object.entries(sequencePatterns)) {
+    if (sequence.includes(pattern) || pattern.includes(sequence)) {
+      console.log(`部分一致: ${sequence} ≈ ${pattern} → ${char}`);
+      return char;
     }
   }
-  const candidatePatterns = findSubsetProductMatches(validFactors, dotValues);
-  if (candidatePatterns.length > 0) {
-    console.log(`部分一致推測: ${totalValue} → ${candidatePatterns[0].letter}`);
-    return candidatePatterns[0].letter;
-  }
+  
   return null;
 };
+
 const showRecognitionFeedback = (character) => {
   if (!elements.d2dArea || !character) return;
   const fb = document.createElement('div');
@@ -75,8 +74,8 @@ const endDrawing = () => {
   if (drawState.currentStrokeDetected) {
     clearTimeout(drawState.strokeTimer);
     drawState.strokeTimer = setTimeout(() => {
-      if (drawState.detectedDots.size > 0 && drawState.totalValue > 1) {
-        const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
+      if (drawState.sequenceString.length > 0) {
+        const rec = recognizeSequencePattern(drawState.sequenceString);
         if (rec) {
           if (isMobileDevice()) {
             showTextSection();
@@ -105,18 +104,47 @@ const endDrawing = () => {
   drawState.lastStrokeTime = now;
 };
 const addDetectedDot = (dot) => {
-  if (!dot || drawState.detectedDots.has(dot)) return;
+  if (!dot) return;
+  
+  // ドットの番号を取得（1-9 または 0）
+  let dotNumber;
+  if (dot.dataset.digit) {
+    dotNumber = dot.dataset.digit;
+  } else {
+    // 位置から番号を計算（1-9）
+    const idx = parseInt(dot.dataset.index, 10);
+    if (!isNaN(idx) && idx >= 0 && idx < 9) {
+      dotNumber = (idx + 1).toString();
+    } else {
+      return;
+    }
+  }
+  
+  // 同じ数字が連続 = 新しいストローク
+  if (drawState.previousDotNumber === dotNumber && drawState.sequenceString.length > 0) {
+    console.log(`新しいストローク開始: ${dotNumber}が連続`);
+    // 新しいストロークだが、線は継続して描画
+    drawState.currentStrokeStart = dot;
+    
+    // 重要：タイマーをクリアして再設定
+    clearTimeout(drawState.strokeTimer);
+    drawState.strokeTimer = null;
+  }
+  
+  // シーケンスに追加
+  drawState.sequenceString += dotNumber;
+  drawState.previousDotNumber = dotNumber;
+  
   dot.classList.add('detected');
   drawState.detectedDots.add(dot);
   drawState.detectedDotsList.push(dot);
   drawState.currentStrokeDetected = true;
-  const v = parseInt(dot.dataset.value, 10);
-  if (!isNaN(v)) {
-    drawState.totalValue *= v;
-  }
+  
   const rect = dot.getBoundingClientRect();
   const dotX = rect.left + rect.width / 2;
   const dotY = rect.top + rect.height / 2;
+  
+  // 線を描画（マルチストロークでも継続）
   if (drawState.lastDetectedDot) {
     const activeColorBtn = document.querySelector('.color-btn.active');
     const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
@@ -129,11 +157,15 @@ const addDetectedDot = (dot) => {
     );
     drawState.currentLineColor = currentColor;
   }
+  
   drawState.lastDetectedDot = dot;
   drawState.lastDotX = dotX;
   drawState.lastDotY = dotY;
+  
+  // タイマーを必ずクリア（重要）
   clearTimeout(drawState.strokeTimer);
   drawState.strokeTimer = null;
+  drawState.lastStrokeTime = Date.now(); // 追加：最終ストローク時刻を更新
 };
 const detectDot = (x, y) => {
   if (!drawState.isActive || !elements.dotGrid) return;
@@ -330,12 +362,11 @@ function initKeypad() {
     row.className = 'dot-row';
     for (let c = 0; c < CONFIG.layout.gridCols; c++) {
       const idx = r * CONFIG.layout.gridCols + c;
-      if (idx >= dotValues.length) continue;
-      const value = dotValues[idx];
+      if (idx >= 9) continue;
       const dot = document.createElement('div');
       dot.className = 'dot';
       dot.dataset.index = idx;
-      dot.dataset.value = value;
+      dot.dataset.value = idx + 1; // 1-9の値を設定
       const position = idx + 1;
       dot.textContent = position.toString();
       dot.classList.add('numeric');
@@ -355,7 +386,7 @@ function initKeypad() {
   zeroBtn.textContent = '0';
   zeroBtn.dataset.digit = '0';
   zeroBtn.dataset.index = 'special_0';
-  zeroBtn.dataset.value = '1';
+  zeroBtn.dataset.value = '0';
   elements.specialRow.appendChild(zeroBtn);
   const spaceBtn = document.createElement('div');
   spaceBtn.className = 'special-button space';
