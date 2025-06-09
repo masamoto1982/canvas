@@ -14,9 +14,7 @@ const drawState = {
   isActive: false,
   detectedDots: new Set(),
   detectedDotsList: [],
-  sequenceString: '', // 新規追加：ドットの順序を記録
-  previousDotNumber: null, // 新規追加：前のドット番号を記録
-  currentStrokeStart: null, // 新規追加：現在のストロークの開始点
+  totalValue: 1,
   startX: 0,
   startY: 0,
   lastStrokeTime: 0,
