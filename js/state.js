@@ -14,7 +14,10 @@ const drawState = {
   isActive: false,
   detectedDots: new Set(),
   detectedDotsList: [],
-  totalValue: 1,
+  visitedNumbers: new Set(), // なぞったドット番号
+  strokeCount: 0, // 新規追加：ストローク数
+  previousDotNumber: null, // 新規追加：前のドット番号（ストローク検出用）
+  totalValue: 1, // 互換性のため残す
   startX: 0,
   startY: 0,
   lastStrokeTime: 0,

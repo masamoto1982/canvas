@@ -38,7 +38,35 @@ const interpreter = (() => {
       }
     }, []);
   };
-  const evaluate = (ast, env = environment, localEnv = {}) => {
+  
+  // 末尾再帰最適化のためのヘルパー関数
+  const isTailCall = (ast, funcName) => {
+    return ast.type === 'function_call' && ast.name === funcName;
+  };
+  
+  const evaluateWithTCO = (ast, env, localEnv, currentFuncName = null) => {
+    // 末尾再帰最適化のためのループ
+    while (true) {
+      const result = evaluateOne(ast, env, localEnv, currentFuncName);
+      
+      // 末尾呼び出しの場合、引数を更新してループを続ける
+      if (result && result.__tailCall && result.funcName === currentFuncName) {
+        // 新しいローカル環境を作成
+        const newLocalEnv = {};
+        const func = env.functions[result.funcName];
+        for (let i = 0; i < func.params.length; i++) {
+          newLocalEnv[func.params[i]] = result.args[i];
+        }
+        localEnv = newLocalEnv;
+        ast = func.body;
+        continue;
+      }
+      
+      return result;
+    }
+  };
+  
+  const evaluateOne = (ast, env = environment, localEnv = {}, currentFuncName = null) => {
     if (!ast) return null;
     if (ast.type === Types.NUMBER || ast.type === Types.BOOLEAN || ast.type === Types.STRING) {
       return ast.value;
@@ -84,418 +112,496 @@ const interpreter = (() => {
       if (ast.args.length !== func.params.length) {
         throw new Error(`Function ${ast.name} expects ${func.params.length} arguments, but got ${ast.args.length}`);
       }
+      
+      // 引数を評価
+      const evaluatedArgs = ast.args.map(arg => evaluate(arg, env, localEnv));
+      
+      // 末尾位置かどうかをチェック
+      if (currentFuncName === ast.name) {
+        // 末尾再帰の場合、特別なオブジェクトを返す
+        return {
+          __tailCall: true,
+          funcName: ast.name,
+          args: evaluatedArgs
+        };
+      }
+      
+      // 通常の関数呼び出し
       const newLocalEnv = {};
       for (let i = 0; i < func.params.length; i++) {
-        newLocalEnv[func.params[i]] = evaluate(ast.args[i], env, localEnv);
+        newLocalEnv[func.params[i]] = evaluatedArgs[i];
       }
-      return evaluate(func.body, env, newLocalEnv);
+      return evaluateWithTCO(func.body, env, newLocalEnv, ast.name);
     }
     if (ast.type === 'builtin_call') {
-  // MAP/FILTERは特別な処理が必要
-  if (ast.name === 'MAP' || ast.name === 'FILTER') {
-    // 第1引数は関数名として文字列のまま使用
-    const funcName = ast.args[0];  // "DOUBLE" のような文字列
-    // 第2引数は評価してベクトルを取得
-    const vector = evaluate(ast.args[1], env, localEnv);
-    
-    if (ast.name === 'MAP') {
-      console.log('MAP called with function:', funcName, 'and vector:', vector);
-      if (!Array.isArray(vector)) {
-        throw new Error('MAP expects a vector as second argument');
+      // IFは特別扱い（遅延評価が必要）
+      if (ast.name === 'IF') {
+        const condition = evaluate(ast.args[0], env, localEnv);
+        
+        // 条件は必ずboolean型でなければならない
+        if (typeof condition !== 'boolean') {
+          throw new Error('IF condition must be a boolean value (cyan)');
+        }
+        
+        // 条件に応じて適切な分岐を評価（遅延評価）
+        if (condition) {
+          return evaluateWithTCO(ast.args[1], env, localEnv, currentFuncName);
+        } else {
+          return evaluateWithTCO(ast.args[2], env, localEnv, currentFuncName);
+        }
       }
       
-      if (typeof funcName === 'string' && funcName in env.functions) {
-        const func = env.functions[funcName];
-        console.log('Function found:', func);
-        if (func.params.length !== 1) {
-          throw new Error(`MAP: Function ${funcName} must take exactly one parameter`);
-        }
-        const result = vector.map((item, index) => {
-          console.log(`Processing item ${index}:`, item);
-          if (isNil(item)) {
-            console.log('Item is nil, returning NIL');
-            return NIL;
+      // MAP/FILTERは特別な処理が必要
+      if (ast.name === 'MAP' || ast.name === 'FILTER') {
+        // 第1引数は関数名として文字列のまま使用
+        const funcName = ast.args[0];  // "DOUBLE" のような文字列
+        // 第2引数は評価してベクトルを取得
+        const vector = evaluate(ast.args[1], env, localEnv);
+        
+        if (ast.name === 'MAP') {
+          console.log('MAP called with function:', funcName, 'and vector:', vector);
+          if (!Array.isArray(vector)) {
+            throw new Error('MAP expects a vector as second argument');
           }
-          const newLocalEnv = {};
-          newLocalEnv[func.params[0]] = item;
-          console.log('Local environment:', newLocalEnv);
-          const evalResult = evaluate(func.body, env, newLocalEnv);
-          console.log('Evaluation result:', evalResult);
-          return evalResult;
-        });
-        console.log('MAP result:', result);
-        return result;
-      } else {
-        throw new Error(`MAP: Undefined function ${funcName}`);
-      }
-    }
-    
-    if (ast.name === 'FILTER') {
-      console.log('FILTER called with function:', funcName, 'and vector:', vector);
-      if (!Array.isArray(vector)) {
-        throw new Error('FILTER expects a vector as second argument');
-      }
-      
-      if (typeof funcName === 'string' && funcName in env.functions) {
-        const func = env.functions[funcName];
-        console.log('Function found:', func);
-        if (func.params.length !== 1) {
-          throw new Error(`FILTER: Function ${funcName} must take exactly one parameter`);
-        }
-        return vector.filter((item, index) => {
-          console.log(`Filtering item ${index}:`, item);
-          if (isNil(item)) {
-            return false;  // NILは除外
-          }
-          const newLocalEnv = {};
-          newLocalEnv[func.params[0]] = item;
-          const result = evaluate(func.body, env, newLocalEnv);
-          console.log('Filter result:', result);
-          return result === true;
-        });
-      } else {
-        throw new Error(`FILTER: Undefined function ${funcName}`);
-      }
-    }
-  } else {
-    // その他のビルトイン関数は通常通り引数を評価
-    const args = ast.args.map(arg => evaluate(arg, env, localEnv));
-    
-    switch (ast.name) {
-      case '@': {
-        const [vector, index] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('@ expects a vector as first argument');
-        }
-        let idx;
-        if (Fraction.isValidNumber(index)) {
-          idx = Math.floor(index.valueOf());
-        } else if (typeof index === 'number') {
-          idx = Math.floor(index);
-        } else {
-          throw new Error('@ expects a numeric index as second argument');
-        }
-        if (idx < 0) {
-          idx = vector.length + idx;
-        }
-        if (idx < 0 || idx >= vector.length) {
-          throw new Error(`Index ${index} out of bounds for vector of length ${vector.length}`);
-        }
-        return vector[idx];
-      }
-      case 'LEN': {
-        const [vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('LEN expects a vector as argument');
-        }
-        return Fraction(vector.length, 1);
-      }
-      case 'TAKE': {
-        const [n, vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('TAKE expects a vector as second argument');
-        }
-        const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
-        if (count < 0) {
-          return vector.slice(count);
-        }
-        return vector.slice(0, count);
-      }
-      case 'DROP': {
-        const [n, vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('DROP expects a vector as second argument');
-        }
-        const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
-        if (count < 0) {
-          return vector.slice(0, count);
-        }
-        return vector.slice(count);
-      }
-      case 'FOLD': {
-        const [op, vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('FOLD expects a vector as second argument');
-        }
-        let operator;
-        if (typeof op === 'string') {
-          operator = op;
-        } else if (typeof op === 'object' && op.type === 'operator') {
-          operator = op.value;
-        } else {
-          operator = op;
-        }
-        const nonNilValues = vector.filter(v => !isNil(v));
-        if (nonNilValues.length === 0) {
-          throw new Error('Cannot fold empty vector or vector with only nil values');
-        }
-        let result = nonNilValues[0];
-        for (let i = 1; i < nonNilValues.length; i++) {
-          if (operator === '+') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with + requires numeric vector');
+          
+          if (typeof funcName === 'string' && funcName in env.functions) {
+            const func = env.functions[funcName];
+            console.log('Function found:', func);
+            if (func.params.length !== 1) {
+              throw new Error(`MAP: Function ${funcName} must take exactly one parameter`);
             }
-            result = result.add(nonNilValues[i], false);
-          } else if (operator === '-') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with - requires numeric vector');
-            }
-            result = result.subtract(nonNilValues[i], false);
-          } else if (operator === '*') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with * requires numeric vector');
-            }
-            result = result.multiply(nonNilValues[i], false);
-          } else if (operator === '/') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with / requires numeric vector');
-            }
-            if (nonNilValues[i].numerator === 0) throw new Error('Division by zero');
-            result = result.divide(nonNilValues[i], false);
+            const result = vector.map((item, index) => {
+              console.log(`Processing item ${index}:`, item);
+              if (isNil(item)) {
+                console.log('Item is nil, returning NIL');
+                return NIL;
+              }
+              const newLocalEnv = {};
+              newLocalEnv[func.params[0]] = item;
+              console.log('Local environment:', newLocalEnv);
+              const evalResult = evaluate(func.body, env, newLocalEnv);
+              console.log('Evaluation result:', evalResult);
+              return evalResult;
+            });
+            console.log('MAP result:', result);
+            return result;
           } else {
-            throw new Error(`FOLD: Unknown operator ${operator}`);
+            throw new Error(`MAP: Undefined function ${funcName}`);
           }
         }
-        return result;
-      }
-      case 'DOT': {
-        const [v1, v2] = args;
-        if (!Array.isArray(v1) || !Array.isArray(v2)) {
-          throw new Error('DOT expects two vectors as arguments');
-        }
-        if (v1.length !== v2.length) {
-          throw new Error('DOT product requires vectors of same length');
-        }
-        let result = Fraction(0, 1);
-        for (let i = 0; i < v1.length; i++) {
-          if (isNil(v1[i]) || isNil(v2[i])) continue;
-          if (!Fraction.isValidNumber(v1[i]) || !Fraction.isValidNumber(v2[i])) {
-            throw new Error('DOT product requires numeric vectors');
+        
+        if (ast.name === 'FILTER') {
+          console.log('FILTER called with function:', funcName, 'and vector:', vector);
+          if (!Array.isArray(vector)) {
+            throw new Error('FILTER expects a vector as second argument');
           }
-          result = result.add(v1[i].multiply(v2[i]));
-        }
-        return result;
-      }
-      case 'SHAPE': {
-        const [vector] = args;
-        if (!Array.isArray(vector)) {
-          return [];
-        }
-        return getShape(vector).map(n => Fraction(n, 1));
-      }
-      case 'RESHAPE': {
-        const [shape, vector] = args;
-        if (!Array.isArray(shape)) {
-          throw new Error('RESHAPE expects a shape vector as first argument');
-        }
-        const flat = Array.isArray(vector) ? flatten(vector) : [vector];
-        const dims = shape.map(d => Fraction.isValidNumber(d) ? d.valueOf() : d);
-        if (dims.length === 1) {
-          const size = dims[0];
-          const result = [];
-          for (let i = 0; i < size; i++) {
-            result.push(flat[i % flat.length]);
-          }
-          return result;
-        }
-        if (dims.length === 2) {
-          const [rows, cols] = dims;
-          const result = [];
-          let idx = 0;
-          for (let i = 0; i < rows; i++) {
-            const row = [];
-            for (let j = 0; j < cols; j++) {
-              row.push(flat[idx % flat.length]);
-              idx++;
+          
+          if (typeof funcName === 'string' && funcName in env.functions) {
+            const func = env.functions[funcName];
+            console.log('Function found:', func);
+            if (func.params.length !== 1) {
+              throw new Error(`FILTER: Function ${funcName} must take exactly one parameter`);
             }
-            result.push(row);
+            return vector.filter((item, index) => {
+              console.log(`Filtering item ${index}:`, item);
+              if (isNil(item)) {
+                return false;  // NILは除外
+              }
+              const newLocalEnv = {};
+              newLocalEnv[func.params[0]] = item;
+              const result = evaluate(func.body, env, newLocalEnv);
+              console.log('Filter result:', result);
+              return result === true;
+            });
+          } else {
+            throw new Error(`FILTER: Undefined function ${funcName}`);
           }
-          return result;
         }
-        throw new Error('RESHAPE currently supports up to 2 dimensions');
-      }
-      default:
-        throw new Error(`Unknown builtin function: ${ast.name}`);
-    }
-  }
+      } else {
+        // その他のビルトイン関数は通常通り引数を評価
+        const args = ast.args.map(arg => evaluate(arg, env, localEnv));
+        
+        switch (ast.name) {
+          case '@': {
+            const [vector, index] = args;
+            if (!Array.isArray(vector)) {
+              throw new Error('@ expects a vector as first argument');
+            }
+            let idx;
+            if (Fraction.isValidNumber(index)) {
+              idx = Math.floor(index.valueOf());
+            } else if (typeof index === 'number') {
+              idx = Math.floor(index);
+            } else {
+              throw new Error('@ expects a numeric index as second argument');
+            }
+            if (idx < 0) {
+              idx = vector.length + idx;
+            }
+            if (idx < 0 || idx >= vector.length) {
+              throw new Error(`Index ${index} out of bounds for vector of length ${vector.length}`);
+            }
+            return vector[idx];
+          }
+          case 'LEN': {
+            const [vector] = args;
+            if (!Array.isArray(vector)) {
+              throw new Error('LEN expects a vector as argument');
+            }
+            return Fraction(vector.length, 1);
+          }
+          case 'TAKE': {
+            const [n, vector] = args;
+            if (!Array.isArray(vector)) {
+              throw new Error('TAKE expects a vector as second argument');
+            }
+            const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+            if (count < 0) {
+              return vector.slice(count);
+            }
+            return vector.slice(0, count);
+          }
+          case 'DROP': {
+            const [n, vector] = args;
+            if (!Array.isArray(vector)) {
+              throw new Error('DROP expects a vector as second argument');
+            }
+            const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
+            if (count < 0) {
+              return vector.slice(0, count);
+            }
+            return vector.slice(count);
+          }
+          case 'FOLD': {
+            const [op, vector] = args;
+            if (!Array.isArray(vector)) {
+              throw new Error('FOLD expects a vector as second argument');
+            }
+            let operator;
+            if (typeof op === 'string') {
+              operator = op;
+            } else if (typeof op === 'object' && op.type === 'operator') {
+              operator = op.value;
+            } else {
+              operator = op;
+            }
+            const nonNilValues = vector.filter(v => !isNil(v));
+            if (nonNilValues.length === 0) {
+              throw new Error('Cannot fold empty vector or vector with only nil values');
+            }
+            let result = nonNilValues[0];
+            for (let i = 1; i < nonNilValues.length; i++) {
+              if (operator === '+') {
+                if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+                  throw new Error('FOLD with + requires numeric vector');
+                }
+                result = result.add(nonNilValues[i], false);
+              } else if (operator === '-') {
+                if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+                  throw new Error('FOLD with - requires numeric vector');
+                }
+                result = result.subtract(nonNilValues[i], false);
+              } else if (operator === '*') {
+                if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+                  throw new Error('FOLD with * requires numeric vector');
+                }
+                result = result.multiply(nonNilValues[i], false);
+              } else if (operator === '/') {
+                if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
+                  throw new Error('FOLD with / requires numeric vector');
+                }
+                if (nonNilValues[i].numerator === 0) throw new Error('Division by zero');
+                result = result.divide(nonNilValues[i], false);
+              } else {
+                throw new Error(`FOLD: Unknown operator ${operator}`);
+              }
+            }
+            return result;
+          }
+          case 'DOT': {
+            const [v1, v2] = args;
+            if (!Array.isArray(v1) || !Array.isArray(v2)) {
+              throw new Error('DOT expects two vectors as arguments');
+            }
+            if (v1.length !== v2.length) {
+              throw new Error('DOT product requires vectors of same length');
+            }
+            let result = Fraction(0, 1);
+            for (let i = 0; i < v1.length; i++) {
+              if (isNil(v1[i]) || isNil(v2[i])) continue;
+              if (!Fraction.isValidNumber(v1[i]) || !Fraction.isValidNumber(v2[i])) {
+                throw new Error('DOT product requires numeric vectors');
+              }
+              result = result.add(v1[i].multiply(v2[i]));
+            }
+            return result;
+          }
+          case 'SHAPE': {
+            const [vector] = args;
+            if (!Array.isArray(vector)) {
+              return [];
+            }return getShape(vector).map(n => Fraction(n, 1));
+         }
+         case 'RESHAPE': {
+           const [shape, vector] = args;
+           if (!Array.isArray(shape)) {
+             throw new Error('RESHAPE expects a shape vector as first argument');
+           }
+           const flat = Array.isArray(vector) ? flatten(vector) : [vector];
+           const dims = shape.map(d => Fraction.isValidNumber(d) ? d.valueOf() : d);
+           if (dims.length === 1) {
+             const size = dims[0];
+             const result = [];
+             for (let i = 0; i < size; i++) {
+               result.push(flat[i % flat.length]);
+             }
+             return result;
+           }
+           if (dims.length === 2) {
+             const [rows, cols] = dims;
+             const result = [];
+             let idx = 0;
+             for (let i = 0; i < rows; i++) {
+               const row = [];
+               for (let j = 0; j < cols; j++) {
+                 row.push(flat[idx % flat.length]);
+                 idx++;
+               }
+               result.push(row);
+             }
+             return result;
+           }
+           throw new Error('RESHAPE currently supports up to 2 dimensions');
+         }
+         // 新しいビルトイン関数
+         case 'IS_EMPTY': {
+           const [vector] = args;
+           if (!Array.isArray(vector)) {
+             throw new Error('IS_EMPTY expects a vector as argument');
+           }
+           return vector.length === 0;
+         }
+         case 'IS_NIL': {
+           const [value] = args;
+           return isNil(value);
+         }
+         case 'AND': {
+           const [left, right] = args;
+           if (typeof left !== 'boolean' || typeof right !== 'boolean') {
+             throw new Error('AND expects two boolean arguments');
+           }
+           return left && right;
+         }
+         case 'OR': {
+           const [left, right] = args;
+           if (typeof left !== 'boolean' || typeof right !== 'boolean') {
+             throw new Error('OR expects two boolean arguments');
+           }
+           return left || right;
+         }
+         case 'NOT': {
+           const [value] = args;
+           if (typeof value !== 'boolean') {
+             throw new Error('NOT expects a boolean argument');
+           }
+           return !value;
+         }
+         default:
+           throw new Error(`Unknown builtin function: ${ast.name}`);
+       }
+     }
+   }
+   if (ast.type === 'operation') {
+     const left = evaluate(ast.left, env, localEnv);
+     const right = evaluate(ast.right, env, localEnv);
+     if (isNil(left) || isNil(right)) {
+       return NIL;
+     }
+     if (Array.isArray(left) && Array.isArray(right)) {
+       if (['+', '-', '*', '/'].includes(ast.operator)) {
+         if (left.length !== right.length) {
+           throw new Error(`Vector operation requires vectors of same length`);
+         }
+         return left.map((l, i) => {
+           if (isNil(l) || isNil(right[i])) {
+             return NIL;
+           }
+           const operation = {
+             type: 'operation',
+             operator: ast.operator,
+             left: { type: 'value', value: l },
+             right: { type: 'value', value: right[i] }
+           };
+           return evaluate(operation, env, localEnv);
+         });
+       }
+     }
+     if (Fraction.isValidNumber(left) && Array.isArray(right)) {
+       if (['*', '/'].includes(ast.operator)) {
+         return right.map(r => {
+           if (isNil(r)) return NIL;
+           const operation = {
+             type: 'operation',
+             operator: ast.operator,
+             left: { type: 'value', value: left },
+             right: { type: 'value', value: r }
+           };
+           return evaluate(operation, env, localEnv);
+         });
+       }
+     }
+     if (Array.isArray(left) && Fraction.isValidNumber(right)) {
+       if (['*', '/'].includes(ast.operator)) {
+         return left.map(l => {
+           if (isNil(l)) return NIL;
+           const operation = {
+             type: 'operation',
+             operator: ast.operator,
+             left: { type: 'value', value: l },
+             right: { type: 'value', value: right }
+           };
+           return evaluate(operation, env, localEnv);
+         });
+       }
+     }
+     if (['+', '-', '*', '/'].includes(ast.operator)) {
+       if (!Fraction.isValidNumber(left) || !Fraction.isValidNumber(right)) {
+         throw new Error(`Type Error: Operator '${ast.operator}' requires Number type (green) operands`);
+       }
+       switch (ast.operator) {
+         case '+': return left.add(right, false);
+         case '-': return left.subtract(right, false);
+         case '*': return left.multiply(right, false);
+         case '/':
+           if (right.numerator === 0) throw new Error('Division by zero');
+           return left.divide(right, false);
+       }
+     }
+     if (['>', '>=', '=='].includes(ast.operator)) {
+       const leftIsNumber = Fraction.isValidNumber(left);
+       const rightIsNumber = Fraction.isValidNumber(right);
+       const leftType = leftIsNumber ? Types.NUMBER :
+                       Array.isArray(left) ? Types.VECTOR : typeof left;
+       const rightType = rightIsNumber ? Types.NUMBER :
+                        Array.isArray(right) ? Types.VECTOR : typeof right;
+       if (leftType !== rightType) {
+         throw new Error(`Type Error: Cannot compare values of different types (${leftType} vs ${rightType})`);
+       }
+       if (leftIsNumber && rightIsNumber) {
+         switch (ast.operator) {
+           case '>': return left.greaterThan(right);
+           case '>=': return left.greaterThanOrEqual(right);
+           case '==': return left.equals(right);
+         }
+       }
+       if (leftType === Types.STRING || leftType === Types.BOOLEAN) {
+         switch (ast.operator) {
+           case '==': return left === right;
+           case '>': return left > right;
+           case '>=': return left >= right;
+         }
+       }
+     }
+     throw new Error(`Unknown operator: ${ast.operator}`);
+   }
+   if (ast.type === 'value') {
+     return ast.value;
+   }
+   throw new Error(`Unknown AST node type: ${ast.type}`);
+ };
+ 
+ // evaluateをevaluateWithTCOのエイリアスにする
+ const evaluate = (ast, env = environment, localEnv = {}) => {
+   return evaluateWithTCO(ast, env, localEnv);
+ };
+ 
+ const formatValue = (value) => {
+   if (isNil(value)) {
+     return "nil";
+   } else if (Fraction.isValidNumber(value)) {
+     return value.toString();
+   } else if (Array.isArray(value)) {
+     return '[ ' + value.map(formatValue).join(' ') + ' ]';
+   } else if (value === null || value === undefined) {
+     return "undefined";
+   } else {
+     return String(value);
+   }
+ };
+ const executeProgram = (program) => {
+   const backupEnv = cloneEnvironment(environment);
+   try {
+     let result;
+     program.forEach(expr => {
+       result = evaluate(expr);
+     });
+     return result;
+   } catch (error) {
+     environment.variables = backupEnv.variables;
+     environment.functions = backupEnv.functions;
+     throw error;
+   }
+ };
+ const resetEnvironment = () => {
+   environment.variables = {};
+   environment.functions = {};
+ };
+ return {
+   execute: (editor) => {
+     try {
+       const tokens = tokenize(editor);
+       if (tokens.length === 0) return "Empty input";
+       tokens.forEach(token => {
+         if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
+           return;
+         }
+         if (token.value === 'NIL') {
+           return;
+         }
+         // ビルトイン関数名は型チェックから除外
+         if (['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE',
+              'IF', 'IS_EMPTY', 'IS_NIL', 'AND', 'OR', 'NOT'].includes(token.value)) {
+           if (token.color !== 'red') {
+             throw new Error(`Type Error: Builtin function names must be Symbol type (red), found ${token.color} for '${token.value}'`);
+           }
+           return;
+         }
+         if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
+           if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
+             if (token.color !== 'green'){
+               throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
+             }
+           }
+         }
+         if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) &&
+             !['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE',
+               'IF', 'IS_EMPTY', 'IS_NIL', 'AND', 'OR', 'NOT'].includes(token.value) &&
+             token.color !== 'red') {
+           throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
+         }
+         if (['(', ')'].includes(token.value) && token.color !== 'red') {
+           throw new Error(`Type Error: Parentheses must be Symbol type (red), found ${token.color} for '${token.value}'`);
+         }
+         if (['[', ']'].includes(token.value) && token.color !== 'purple') {
+           throw new Error(`Type Error: Vector brackets must be Vector type (purple), found ${token.color} for '${token.value}'`);
+         }
+         // booleanの型チェックを追加
+         if (['TRUE', 'FALSE'].includes(token.value) && token.color !== 'cyan') {
+  throw new Error(`Type Error: Boolean literals must be Boolean type (cyan), found ${token.color} for '${token.value}'`);
 }
-    if (ast.type === 'operation') {
-      const left = evaluate(ast.left, env, localEnv);
-      const right = evaluate(ast.right, env, localEnv);
-      if (isNil(left) || isNil(right)) {
-        return NIL;
-      }
-      if (Array.isArray(left) && Array.isArray(right)) {
-        if (['+', '-', '*', '/'].includes(ast.operator)) {
-          if (left.length !== right.length) {
-            throw new Error(`Vector operation requires vectors of same length`);
-          }
-          return left.map((l, i) => {
-            if (isNil(l) || isNil(right[i])) {
-              return NIL;
-            }
-            const operation = {
-              type: 'operation',
-              operator: ast.operator,
-              left: { type: 'value', value: l },
-              right: { type: 'value', value: right[i] }
-            };
-            return evaluate(operation, env, localEnv);
-          });
-        }
-      }
-      if (Fraction.isValidNumber(left) && Array.isArray(right)) {
-        if (['*', '/'].includes(ast.operator)) {
-          return right.map(r => {
-            if (isNil(r)) return NIL;
-            const operation = {
-              type: 'operation',
-              operator: ast.operator,
-              left: { type: 'value', value: left },
-              right: { type: 'value', value: r }
-            };
-            return evaluate(operation, env, localEnv);
-          });
-        }
-      }
-      if (Array.isArray(left) && Fraction.isValidNumber(right)) {
-        if (['*', '/'].includes(ast.operator)) {
-          return left.map(l => {
-            if (isNil(l)) return NIL;
-            const operation = {
-              type: 'operation',
-              operator: ast.operator,
-              left: { type: 'value', value: l },
-              right: { type: 'value', value: right }
-            };
-            return evaluate(operation, env, localEnv);
-          });
-        }
-      }
-      if (['+', '-', '*', '/'].includes(ast.operator)) {
-        if (!Fraction.isValidNumber(left) || !Fraction.isValidNumber(right)) {
-          throw new Error(`Type Error: Operator '${ast.operator}' requires Number type (green) operands`);
-        }
-        switch (ast.operator) {
-          case '+': return left.add(right, false);
-          case '-': return left.subtract(right, false);
-          case '*': return left.multiply(right, false);
-          case '/':
-            if (right.numerator === 0) throw new Error('Division by zero');
-            return left.divide(right, false);
-        }
-      }
-      if (['>', '>=', '=='].includes(ast.operator)) {
-        const leftIsNumber = Fraction.isValidNumber(left);
-        const rightIsNumber = Fraction.isValidNumber(right);
-        const leftType = leftIsNumber ? Types.NUMBER :
-                        Array.isArray(left) ? Types.VECTOR : typeof left;
-        const rightType = rightIsNumber ? Types.NUMBER :
-                         Array.isArray(right) ? Types.VECTOR : typeof right;
-        if (leftType !== rightType) {
-          throw new Error(`Type Error: Cannot compare values of different types (${leftType} vs ${rightType})`);
-        }
-        if (leftIsNumber && rightIsNumber) {
-          switch (ast.operator) {
-            case '>': return left.greaterThan(right);
-            case '>=': return left.greaterThanOrEqual(right);
-            case '==': return left.equals(right);
-          }
-        }
-        if (leftType === Types.STRING || leftType === Types.BOOLEAN) {
-          switch (ast.operator) {
-            case '==': return left === right;
-            case '>': return left > right;
-            case '>=': return left >= right;
-          }
-        }
-      }
-      throw new Error(`Unknown operator: ${ast.operator}`);
-    }
-    if (ast.type === 'value') {
-      return ast.value;
-    }
-    throw new Error(`Unknown AST node type: ${ast.type}`);
-  };
-  const formatValue = (value) => {
-    if (isNil(value)) {
-      return "nil";
-    } else if (Fraction.isValidNumber(value)) {
-      return value.toString();
-    } else if (Array.isArray(value)) {
-      return '[ ' + value.map(formatValue).join(' ') + ' ]';
-    } else if (value === null || value === undefined) {
-      return "undefined";
-    } else {
-      return String(value);
-    }
-  };
-  const executeProgram = (program) => {
-    const backupEnv = cloneEnvironment(environment);
-    try {
-      let result;
-      program.forEach(expr => {
-        result = evaluate(expr);
-      });
-      return result;
-    } catch (error) {
-      environment.variables = backupEnv.variables;
-      environment.functions = backupEnv.functions;
-      throw error;
-    }
-  };
-  const resetEnvironment = () => {
-    environment.variables = {};
-    environment.functions = {};
-  };
-  return {
-    // js/interpreter.js の execute メソッド内の型チェック部分を修正
-execute: (editor) => {
-  try {
-    const tokens = tokenize(editor);
-    if (tokens.length === 0) return "Empty input";
-    tokens.forEach(token => {
-      if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
-        return;
-      }
-      if (token.value === 'NIL') {
-        return;
-      }
-      if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
-        if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
-          if (token.color !== 'green'){
-            throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
-          }
-        }
-      }
-      if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) &&
-          !['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE'].includes(token.value) &&
-          token.color !== 'red') {
-        throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
-      }
-      if (['(', ')'].includes(token.value) && token.color !== 'red') {
-        throw new Error(`Type Error: Parentheses must be Symbol type (red), found ${token.color} for '${token.value}'`);
-      }
-      if (['[', ']'].includes(token.value) && token.color !== 'purple') {
-        throw new Error(`Type Error: Vector brackets must be Vector type (purple), found ${token.color} for '${token.value}'`);
-      }
-      // booleanの型チェックを追加
-      if (['true', 'false'].includes(token.value.toLowerCase()) && token.color !== 'cyan') {
-        throw new Error(`Type Error: Boolean literals must be Boolean type (cyan), found ${token.color} for '${token.value}'`);
-      }
-      // NILの型チェックを追加
-      if (token.value === 'NIL' && token.color !== 'orange') {
-        throw new Error(`Type Error: NIL must be Nil type (orange), found ${token.color} for '${token.value}'`);
-      }
-    });
-    const ast = parse(tokens);
-    const result = executeProgram(ast);
-    return formatValue(result);
-  } catch (err) {
-    return `Error: ${err.message}`;
-  }
-},
-    reset: resetEnvironment,
-    getEnvironment: () => ({ ...environment })
-  };
+         // NILの型チェックを追加
+         if (token.value === 'NIL' && token.color !== 'orange') {
+           throw new Error(`Type Error: NIL must be Nil type (orange), found ${token.color} for '${token.value}'`);
+         }
+       });
+       const ast = parse(tokens);
+       const result = executeProgram(ast);
+       return formatValue(result);
+     } catch (err) {
+       return `Error: ${err.message}`;
+     }
+   },
+   reset: resetEnvironment,
+   getEnvironment: () => ({ ...environment })
+ };
 })();
