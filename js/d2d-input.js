@@ -10,9 +10,6 @@ const resetDrawState = (keepActive = false) => {
     drawState.detectedDots.forEach(dot => dot.classList.remove('detected'));
     drawState.detectedDots.clear();
   }
-  drawState.visitedNumbers.clear();
-  drawState.strokeCount = 0; // 新規追加
-  drawState.previousDotNumber = null; // 新規追加
   drawState.totalValue = 1;
   drawState.currentStrokeDetected = false;
   drawState.hasMoved = false;
@@ -39,40 +36,31 @@ const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => {
   ctx.lineTo(toX, toY);
   ctx.stroke();
 };
-
-// 新しい認識関数（ストローク数とドットの組み合わせ）
-const recognizeStrokePattern = () => {
-  // なぞったドットを昇順でソート
-  const visitedArray = Array.from(drawState.visitedNumbers).sort();
-  const visitedString = visitedArray.join('');
-  const strokes = drawState.strokeCount;
-  
-  console.log(`ストローク数: ${strokes}`);
-  console.log(`なぞったドット: ${visitedString}`);
-  
-  // パターンマッチング
-  for (const pattern of strokePatterns) {
-    if (pattern.strokes === strokes && pattern.dots === visitedString) {
-      console.log(`認識成功: ${strokes}ストローク, ${visitedString} → ${pattern.char}`);
-      return pattern.char;
+const recognizeLetterWithErrorCorrection = (totalValue) => {
+  if (letterPatterns[totalValue]) {
+    console.log(`完全一致: ${totalValue} → ${letterPatterns[totalValue]}`);
+    return letterPatterns[totalValue];
+  }
+  if (complexPatterns && complexPatterns[totalValue]) {
+    console.log(`複合パターン一致: ${totalValue} → ${complexPatterns[totalValue]}`);
+    return complexPatterns[totalValue];
+  }
+  const factors = getPrimeFactors(totalValue);
+  const validFactors = factors.filter(f => dotValues.includes(f));
+  if (validFactors.length > 0) {
+    const correctedValue = validFactors.reduce((a, b) => a * b, 1);
+    if (letterPatterns[correctedValue]) {
+      console.log(`誤り訂正成功: ${totalValue} → ${correctedValue} → ${letterPatterns[correctedValue]}`);
+      return letterPatterns[correctedValue];
     }
   }
-  
-  // 部分一致を試みる（ドットの順序は問わないが、すべてのドットが含まれている必要がある）
-  for (const pattern of strokePatterns) {
-    if (pattern.strokes === strokes) {
-      const patternDots = pattern.dots.split('').sort().join('');
-      if (patternDots === visitedString) {
-        console.log(`部分一致: ${strokes}ストローク, ${visitedString} ≈ ${pattern.dots} → ${pattern.char}`);
-        return pattern.char;
-      }
-    }
+  const candidatePatterns = findSubsetProductMatches(validFactors, dotValues);
+  if (candidatePatterns.length > 0) {
+    console.log(`部分一致推測: ${totalValue} → ${candidatePatterns[0].letter}`);
+    return candidatePatterns[0].letter;
   }
-  
-  console.log(`認識失敗: ${strokes}ストローク, パターン '${visitedString}' は未定義`);
   return null;
 };
-
 const showRecognitionFeedback = (character) => {
   if (!elements.d2dArea || !character) return;
   const fb = document.createElement('div');
@@ -87,8 +75,8 @@ const endDrawing = () => {
   if (drawState.currentStrokeDetected) {
     clearTimeout(drawState.strokeTimer);
     drawState.strokeTimer = setTimeout(() => {
-      if (drawState.visitedNumbers.size > 0) {
-        const rec = recognizeStrokePattern();
+      if (drawState.detectedDots.size > 0 && drawState.totalValue > 1) {
+        const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
         if (rec) {
           if (isMobileDevice()) {
             showTextSection();
@@ -117,57 +105,18 @@ const endDrawing = () => {
   drawState.lastStrokeTime = now;
 };
 const addDetectedDot = (dot) => {
-  if (!dot) return;
-  
-  // ドットの番号を取得（1-9 または 0）
-  let dotNumber;
-  if (dot.dataset.digit) {
-    dotNumber = dot.dataset.digit;
-  } else {
-    // 位置から番号を計算（1-9）
-    const idx = parseInt(dot.dataset.index, 10);
-    if (!isNaN(idx) && idx >= 0 && idx < 9) {
-      dotNumber = (idx + 1).toString();
-    } else {
-      return;
-    }
-  }
-  
-  // 新しいストロークの検出
-  if (drawState.strokeCount === 0) {
-    // 最初のストローク
-    drawState.strokeCount = 1;
-    console.log('最初のストローク開始');
-  } else if (drawState.previousDotNumber === dotNumber && !drawState.detectedDots.has(dot)) {
-    // 同じ番号のドットに再度触れた = 新しいストローク
-    drawState.strokeCount++;
-    console.log(`新しいストローク開始 (${drawState.strokeCount}番目): ドット${dotNumber}が連続`);
-  }
-  
-  // すでに検出済みのドットはスキップ
-  if (drawState.detectedDots.has(dot)) return;
-  
-  // 0は特殊扱い（なぞり書き対象外）
-  if (dotNumber !== '0') {
-    drawState.visitedNumbers.add(dotNumber);
-    drawState.previousDotNumber = dotNumber;
-  }
-  
+  if (!dot || drawState.detectedDots.has(dot)) return;
   dot.classList.add('detected');
   drawState.detectedDots.add(dot);
   drawState.detectedDotsList.push(dot);
   drawState.currentStrokeDetected = true;
-  
-  // 互換性のため
   const v = parseInt(dot.dataset.value, 10);
   if (!isNaN(v)) {
     drawState.totalValue *= v;
   }
-  
   const rect = dot.getBoundingClientRect();
   const dotX = rect.left + rect.width / 2;
   const dotY = rect.top + rect.height / 2;
-  
   if (drawState.lastDetectedDot) {
     const activeColorBtn = document.querySelector('.color-btn.active');
     const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
@@ -180,11 +129,9 @@ const addDetectedDot = (dot) => {
     );
     drawState.currentLineColor = currentColor;
   }
-  
   drawState.lastDetectedDot = dot;
   drawState.lastDotX = dotX;
   drawState.lastDotY = dotY;
-  
   clearTimeout(drawState.strokeTimer);
   drawState.strokeTimer = null;
 };
@@ -195,6 +142,7 @@ const detectDot = (x, y) => {
   drawState.lastDetectionTime = now;
   const hitRadius = CONFIG.sensitivity.hitRadius;
   elements.d2dArea.querySelectorAll('.dot').forEach(dot => {
+    if (drawState.detectedDots.has(dot)) return;
     const r = dot.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
