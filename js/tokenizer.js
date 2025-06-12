@@ -1,100 +1,75 @@
-// js/tokenizer.js
 const tokenize = (editor) => {
   if (!editor) return [];
   const tokens = [];
-  
-  // js/tokenizer.js の extractTokens 関数内の該当部分
-const extractTokens = (node, currentColor = 'red') => {
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.textContent;
-    const color = node.parentNode && node.parentNode.style && node.parentNode.style.color ?
-      rgbToColorName(node.parentNode.style.color) :
-      currentColor;
+
+  const extractTokens = (node, currentColor = 'red') => {
+    // この関数は、エディタのDOMノードを再帰的に走査します。
     
-    // デバッグログ
-    if (text.includes('NIL')) {
-      console.log('Found NIL text:', text, 'with color:', color);
-    }
-    
-    const regex = /(\[|\]|@|\s+)/;
-    const parts = text.split(regex).filter(part => part && part.trim());
-    for (const part of parts) {
-      if (part.trim()) {
-        if (part === '[' || part === ']') {
-          tokens.push({
-            value: part,
-            color: color,
-            type: color === 'purple' ? Types.VECTOR : Types.UNDEFINED
-          });
-        }
-        else if (part === '@') {
-          tokens.push({
-            value: part,
-            color: color,
-            type: Types.SYMBOL
-          });
-        } else if (part === 'NIL') {
-          // NILの特別処理
-          console.log('Creating NIL token with color:', color);
-          tokens.push({
-            value: part,
-            color: color,
-            type: color === 'orange' ? Types.NIL : Types.UNDEFINED
-          });
+    // ケース1: ノードがプレーンなテキストノードの場合
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent;
+      // 親要素の色（型）を取得、または親から継承した色を使用します。
+      const color = node.parentNode && node.parentNode.style && node.parentNode.style.color ?
+        rgbToColorName(node.parentNode.style.color) :
+        currentColor;
+
+      // この正規表現は、特殊文字（{}、[]、@）を区切り文字としてテキストを分割しますが、区切り文字自体はトークンとして保持します。
+      const specialCharRegex = /([\[\]@{}])/g;
+      const mainParts = text.split(specialCharRegex).filter(Boolean); // .filter(Boolean) は空文字列を削除します。
+
+      for (const part of mainParts) {
+        // partが特殊文字そのものである場合、直接トークンを作成します。
+        if (['[', ']', '@', '{', '}'].includes(part)) {
+          let type = Types.SYMBOL; // {} と @ はデフォルトでシンボル
+          if (part === '[' || part === ']') type = Types.VECTOR; // [] はベクターのヒント
+          tokens.push({ value: part, color: color, type: type });
         } else {
-          const prefixMatch = part.match(/^(number|boolean|string|symbol|vector|nil|comment):(.+)$/);
-          if (prefixMatch) {
-            const [, type, value] = prefixMatch;
-            const prefixColor = {
-              'number': 'green',
-              'boolean': 'cyan',
-              'string': 'blue',
-              'symbol': 'red',
-              'vector': 'purple',
-              'nil': 'orange',
-              'comment': 'yellow'
-            }[type];
-            // nil:NILの場合の特別処理
-            if (type === 'nil' && value === 'NIL') {
+          // 特殊文字でない場合、このpartは通常のワードと空白の混在です。
+          // 以下の正規表現は、空白の連続か、非空白文字の連続にマッチします。
+          const subParts = part.match(/\s+|\S+/g) || [];
+          for (const word of subParts) {
+            // 空白文字の場合は特別な処理
+            if (/^\s+$/.test(word)) {
               tokens.push({
-                value: 'NIL',
-                color: 'orange',
-                type: Types.NIL
+                value: word,
+                color: color,
+                type: Types.WHITESPACE  // 空白文字専用の型を設定
               });
             } else {
+              // 非空白文字の場合は色に基づいて型を決定
               tokens.push({
-                value: value,
-                color: prefixColor || color,
-                type: ColorTypes[prefixColor] || Types.UNDEFINED
+                value: word,
+                color: color,
+                type: ColorTypes[color] || Types.SYMBOL  // UNDEFINEDではなくSYMBOLをデフォルトに
               });
             }
-          } else {
-            tokens.push({
-              value: part,
-              color: color,
-              type: ColorTypes[color] || Types.UNDEFINED
-            });
           }
         }
       }
+    } 
+    // ケース2: ノードがBRタグ（改行）の場合。トークン化では無視します。
+    else if (node.nodeName === 'BR') {
+      // 意図的に空
+    } 
+    // ケース3: ノードが子を持つ要素（<span>や<font>など）の場合。再帰的に処理します。
+    else if (node.childNodes && node.childNodes.length > 0) {
+      Array.from(node.childNodes).forEach(child => {
+        const nodeColor = node.style && node.style.color ?
+          rgbToColorName(node.style.color) :
+          currentColor;
+        extractTokens(child, nodeColor);
+      });
     }
-  } else if (node.nodeName === 'BR') {
-  } else if (node.childNodes && node.childNodes.length > 0) {
-    Array.from(node.childNodes).forEach(child => {
-      const nodeColor = node.style && node.style.color ?
-        rgbToColorName(node.style.color) :
-        currentColor;
-      extractTokens(child, nodeColor);
-    });
-  }
-};
-  
+  };
+
+  // トップレベルのエディタ要素から処理を開始します。
   Array.from(editor.childNodes).forEach(node => {
     extractTokens(node);
   });
-  
-  // コメント色（黄色）のトークンをフィルタリング
+
+  // 最後に、コメント（黄色）としてマークされたトークンをすべて除外します。
   const filteredTokens = tokens.filter(token => token.color !== 'yellow');
-  
+
+  console.log("[DEBUG] Tokens:", filteredTokens);
   return filteredTokens;
 };

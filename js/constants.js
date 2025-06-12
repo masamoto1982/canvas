@@ -6,7 +6,8 @@ const Types = {
   VECTOR: 'vector',
   NIL: 'nil',
   COMMENT: 'comment',
-  UNDEFINED: 'undefined'
+  UNDEFINED: 'undefined',  // これは既に定義されていました
+  WHITESPACE: 'whitespace'  // 新たに追加
 };
 const ColorTypes = {
   'green': Types.NUMBER,

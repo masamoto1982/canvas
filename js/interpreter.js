@@ -1,501 +1,249 @@
 const interpreter = (() => {
-  const environment = { variables: {}, functions: {} };
-  const cloneEnvironment = (env) => {
-    return {
-      variables: { ...env.variables },
-      functions: { ...env.functions }
-    };
-  };
-  const NIL = { type: Types.NIL, value: null };
-  const isNil = (value) => {
-    return value && value.type === Types.NIL;
-  };
-  const getShape = (vector) => {
-    if (!Array.isArray(vector)) return [];
-    const shape = [vector.length];
-    let firstNonNil = null;
-    for (let i = 0; i < vector.length; i++) {
-      if (!isNil(vector[i])) {
-        firstNonNil = vector[i];
-        break;
-      }
-    }
-    if (firstNonNil && Array.isArray(firstNonNil)) {
-      const innerShape = getShape(firstNonNil);
-      shape.push(...innerShape);
-    }
-    return shape;
-  };
-  const flatten = (vector) => {
-    if (!Array.isArray(vector)) return [vector];
-    return vector.reduce((flat, item) => {
-      if (isNil(item)) {
-        return flat.concat(item);
-      } else if (Array.isArray(item)) {
-        return flat.concat(flatten(item));
-      } else {
-        return flat.concat(item);
-      }
-    }, []);
-  };
-  const evaluate = (ast, env = environment, localEnv = {}) => {
-    if (!ast) return null;
-    if (ast.type === Types.NUMBER || ast.type === Types.BOOLEAN || ast.type === Types.STRING) {
-      return ast.value;
-    }
-    if (ast.type === Types.NIL) {
-      return NIL;
-    }
-    if (ast.type === 'operator') {
-      return ast.value;
-    }
-    if (ast.type === Types.VECTOR) {
-      return ast.elements.map(elem => evaluate(elem, env, localEnv));
-    }
-    if (ast.type === 'variable') {
-      if (ast.name === 'NIL') {
-        return NIL;
-      }
-      if (ast.name in localEnv) {
-        return localEnv[ast.name];
-      }
-      if (!(ast.name in env.variables)) {
-        throw new Error(`Undefined variable: ${ast.name}`);
-      }
-      return env.variables[ast.name];
-    }
-    if (ast.type === 'assignment') {
-      const value = evaluate(ast.value, env, localEnv);
-      env.variables[ast.variable] = value;
-      return value;
-    }
-    if (ast.type === 'function_definition') {
-      env.functions[ast.name] = {
-        params: ast.params,
-        body: ast.body
-      };
-      return `Function ${ast.name} defined`;
-    }
-    if (ast.type === 'function_call') {
-      if (!(ast.name in env.functions)) {
-        throw new Error(`Undefined function: ${ast.name}`);
-      }
-      const func = env.functions[ast.name];
-      if (ast.args.length !== func.params.length) {
-        throw new Error(`Function ${ast.name} expects ${func.params.length} arguments, but got ${ast.args.length}`);
-      }
-      const newLocalEnv = {};
-      for (let i = 0; i < func.params.length; i++) {
-        newLocalEnv[func.params[i]] = evaluate(ast.args[i], env, localEnv);
-      }
-      return evaluate(func.body, env, newLocalEnv);
-    }
-    if (ast.type === 'builtin_call') {
-  // MAP/FILTERは特別な処理が必要
-  if (ast.name === 'MAP' || ast.name === 'FILTER') {
-    // 第1引数は関数名として文字列のまま使用
-    const funcName = ast.args[0];  // "DOUBLE" のような文字列
-    // 第2引数は評価してベクトルを取得
-    const vector = evaluate(ast.args[1], env, localEnv);
-    
-    if (ast.name === 'MAP') {
-      console.log('MAP called with function:', funcName, 'and vector:', vector);
-      if (!Array.isArray(vector)) {
-        throw new Error('MAP expects a vector as second argument');
-      }
-      
-      if (typeof funcName === 'string' && funcName in env.functions) {
-        const func = env.functions[funcName];
-        console.log('Function found:', func);
-        if (func.params.length !== 1) {
-          throw new Error(`MAP: Function ${funcName} must take exactly one parameter`);
-        }
-        const result = vector.map((item, index) => {
-          console.log(`Processing item ${index}:`, item);
-          if (isNil(item)) {
-            console.log('Item is nil, returning NIL');
-            return NIL;
-          }
-          const newLocalEnv = {};
-          newLocalEnv[func.params[0]] = item;
-          console.log('Local environment:', newLocalEnv);
-          const evalResult = evaluate(func.body, env, newLocalEnv);
-          console.log('Evaluation result:', evalResult);
-          return evalResult;
-        });
-        console.log('MAP result:', result);
-        return result;
-      } else {
-        throw new Error(`MAP: Undefined function ${funcName}`);
-      }
-    }
-    
-    if (ast.name === 'FILTER') {
-      console.log('FILTER called with function:', funcName, 'and vector:', vector);
-      if (!Array.isArray(vector)) {
-        throw new Error('FILTER expects a vector as second argument');
-      }
-      
-      if (typeof funcName === 'string' && funcName in env.functions) {
-        const func = env.functions[funcName];
-        console.log('Function found:', func);
-        if (func.params.length !== 1) {
-          throw new Error(`FILTER: Function ${funcName} must take exactly one parameter`);
-        }
-        return vector.filter((item, index) => {
-          console.log(`Filtering item ${index}:`, item);
-          if (isNil(item)) {
-            return false;  // NILは除外
-          }
-          const newLocalEnv = {};
-          newLocalEnv[func.params[0]] = item;
-          const result = evaluate(func.body, env, newLocalEnv);
-          console.log('Filter result:', result);
-          return result === true;
-        });
-      } else {
-        throw new Error(`FILTER: Undefined function ${funcName}`);
-      }
-    }
-  } else {
-    // その他のビルトイン関数は通常通り引数を評価
-    const args = ast.args.map(arg => evaluate(arg, env, localEnv));
-    
-    switch (ast.name) {
-      case '@': {
-        const [vector, index] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('@ expects a vector as first argument');
-        }
-        let idx;
-        if (Fraction.isValidNumber(index)) {
-          idx = Math.floor(index.valueOf());
-        } else if (typeof index === 'number') {
-          idx = Math.floor(index);
-        } else {
-          throw new Error('@ expects a numeric index as second argument');
-        }
-        if (idx < 0) {
-          idx = vector.length + idx;
-        }
-        if (idx < 0 || idx >= vector.length) {
-          throw new Error(`Index ${index} out of bounds for vector of length ${vector.length}`);
-        }
-        return vector[idx];
-      }
-      case 'LEN': {
-        const [vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('LEN expects a vector as argument');
-        }
-        return Fraction(vector.length, 1);
-      }
-      case 'TAKE': {
-        const [n, vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('TAKE expects a vector as second argument');
-        }
-        const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
-        if (count < 0) {
-          return vector.slice(count);
-        }
-        return vector.slice(0, count);
-      }
-      case 'DROP': {
-        const [n, vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('DROP expects a vector as second argument');
-        }
-        const count = Fraction.isValidNumber(n) ? n.valueOf() : n;
-        if (count < 0) {
-          return vector.slice(0, count);
-        }
-        return vector.slice(count);
-      }
-      case 'FOLD': {
-        const [op, vector] = args;
-        if (!Array.isArray(vector)) {
-          throw new Error('FOLD expects a vector as second argument');
-        }
-        let operator;
-        if (typeof op === 'string') {
-          operator = op;
-        } else if (typeof op === 'object' && op.type === 'operator') {
-          operator = op.value;
-        } else {
-          operator = op;
-        }
-        const nonNilValues = vector.filter(v => !isNil(v));
-        if (nonNilValues.length === 0) {
-          throw new Error('Cannot fold empty vector or vector with only nil values');
-        }
-        let result = nonNilValues[0];
-        for (let i = 1; i < nonNilValues.length; i++) {
-          if (operator === '+') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with + requires numeric vector');
+ let dataStack = [];
+ const environment = {
+   variables: {},
+   functions: {}
+ };
+
+ const pop = () => {
+   if (dataStack.length === 0) throw new Error("Stack underflow: cannot pop from an empty stack.");
+   const val = dataStack.pop();
+   console.log(`[DEBUG] Stack POP:`, val);
+   return val;
+ };
+
+ const push = (val) => {
+   console.log(`[DEBUG] Stack PUSH:`, val);
+   dataStack.push(val);
+ }
+ 
+ const peek = () => {
+   if (dataStack.length === 0) throw new Error("Stack underflow: cannot peek into an empty stack.");
+   return dataStack[dataStack.length - 1];
+ };
+
+ const logStackState = (msg) => {
+   console.log(`[DEBUG] ${msg}`, `[${dataStack.map(v => formatValue(v, true)).join(', ')}]`);
+ }
+
+ const executeTokens = (tokens, localEnv = {}) => {
+   console.group(`[DEBUG] Executing tokens:`, tokens.map(t=>`"${t.value}"`));
+   logStackState("Initial Stack State:");
+
+   for (let i = 0; i < tokens.length; i++) {
+     const token = tokens[i];
+     console.log(`--- [DEBUG] Processing token [${i}]: "${token.value}" (${token.color}) ---`);
+     
+     // 空白文字は単純に無視する
+     if (token.type === Types.WHITESPACE) {
+       console.log(`[DEBUG] Ignoring whitespace: "${token.value}"`);
+       continue;
+     }
+
+     // Handle values by pushing them onto the stack
+     if (token.type === Types.NUMBER) {
+       push(token.value.includes('/') ?
+         Fraction.fromString(token.value, true) :
+         Fraction(parseFloat(token.value), 1, false)
+       );
+     } else if (token.type === Types.BOOLEAN) {
+       if (token.value === 'TRUE') push(true);
+       else if (token.value === 'FALSE') push(false);
+       else throw new Error(`Invalid boolean literal: '${token.value}'. Use 'TRUE' or 'FALSE'.`);
+     } else if (token.type === Types.STRING) {
+       // 文字列型は引用符なしでそのまま値として扱う
+       push(token.value);
+     } else if (token.type === Types.NIL) {
+       push({ type: Types.NIL, value: null });
+     }
+
+     // Handle quotations: { ... }
+     else if (token.value === '{' && token.color === 'red') {
+       const quotation = [];
+       let nesting = 1;
+       i++; 
+       while (i < tokens.length) {
+         const innerToken = tokens[i];
+         if (innerToken.value === '{' && innerToken.color === 'red') nesting++;
+         if (innerToken.value === '}' && innerToken.color === 'red') nesting--;
+         if (nesting === 0) break;
+         quotation.push(innerToken);
+         i++;
+       }
+       if (nesting !== 0) throw new Error("Syntax Error: Unmatched '{'.");
+       push({ type: 'quotation', value: quotation });
+     }
+
+     // Handle symbols: operators, keywords, functions, variables
+     else if (token.type === Types.SYMBOL) {
+       const cmd = token.value;
+       
+       // 英数字のシンボルは大文字でなければならない
+       if (/^[a-zA-Z0-9]+$/.test(cmd) && cmd !== cmd.toUpperCase()) {
+         throw new Error(`Symbol names with alphanumeric characters must be uppercase: '${cmd}'. Use '${cmd.toUpperCase()}' instead.`);
+       }
+
+       // Basic Operators
+       if (['+', '-', '*', '/'].includes(cmd)) {
+         const b = pop();
+         const a = pop();
+         if (!Fraction.isValidNumber(a) || !Fraction.isValidNumber(b)) {
+           throw new Error(`Type Error: Operator '${cmd}' requires Number type (green) operands.`);
+         }
+         switch (cmd) {
+           case '+': push(a.add(b)); break;
+           case '-': push(a.subtract(b)); break;
+           case '*': push(a.multiply(b)); break;
+           case '/':
+             if (b.numerator === 0) throw new Error('Division by zero.');
+             push(a.divide(b));
+             break;
+         }
+       } else if (['>', '>=', '=='].includes(cmd)) {
+         const b = pop();
+         const a = pop();
+         const aIsNil = a && a.type === Types.NIL;
+         const bIsNil = b && b.type === Types.NIL;
+
+         // Rule 1: Handle NIL comparisons
+         if (aIsNil || bIsNil) {
+           if (cmd === '==') {
+             push(aIsNil && bIsNil);
+           } else {
+             throw new Error(`Type Error: Comparison operator '${cmd}' is not supported for NIL type.`);
+           }
+         }
+         // Rule 2: Handle number comparisons
+         else if (Fraction.isValidNumber(a) && Fraction.isValidNumber(b)) {
+            switch (cmd) {
+               case '>': push(a.greaterThan(b)); break;
+               case '>=': push(a.greaterThanOrEqual(b)); break;
+               case '==': push(a.equals(b)); break;
             }
-            result = result.add(nonNilValues[i], false);
-          } else if (operator === '-') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with - requires numeric vector');
+         }
+         // Rule 3: Handle comparisons of same primitive types (string or boolean)
+         else if (typeof a === typeof b && (typeof a === 'string' || typeof a === 'boolean')) {
+            switch (cmd) {
+               case '>': push(a > b); break;
+               case '>=': push(a >= b); break;
+               case '==': push(a === b); break;
             }
-            result = result.subtract(nonNilValues[i], false);
-          } else if (operator === '*') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with * requires numeric vector');
-            }
-            result = result.multiply(nonNilValues[i], false);
-          } else if (operator === '/') {
-            if (!Fraction.isValidNumber(result) || !Fraction.isValidNumber(nonNilValues[i])) {
-              throw new Error('FOLD with / requires numeric vector');
-            }
-            if (nonNilValues[i].numerator === 0) throw new Error('Division by zero');
-            result = result.divide(nonNilValues[i], false);
-          } else {
-            throw new Error(`FOLD: Unknown operator ${operator}`);
-          }
-        }
-        return result;
-      }
-      case 'DOT': {
-        const [v1, v2] = args;
-        if (!Array.isArray(v1) || !Array.isArray(v2)) {
-          throw new Error('DOT expects two vectors as arguments');
-        }
-        if (v1.length !== v2.length) {
-          throw new Error('DOT product requires vectors of same length');
-        }
-        let result = Fraction(0, 1);
-        for (let i = 0; i < v1.length; i++) {
-          if (isNil(v1[i]) || isNil(v2[i])) continue;
-          if (!Fraction.isValidNumber(v1[i]) || !Fraction.isValidNumber(v2[i])) {
-            throw new Error('DOT product requires numeric vectors');
-          }
-          result = result.add(v1[i].multiply(v2[i]));
-        }
-        return result;
-      }
-      case 'SHAPE': {
-        const [vector] = args;
-        if (!Array.isArray(vector)) {
-          return [];
-        }
-        return getShape(vector).map(n => Fraction(n, 1));
-      }
-      case 'RESHAPE': {
-        const [shape, vector] = args;
-        if (!Array.isArray(shape)) {
-          throw new Error('RESHAPE expects a shape vector as first argument');
-        }
-        const flat = Array.isArray(vector) ? flatten(vector) : [vector];
-        const dims = shape.map(d => Fraction.isValidNumber(d) ? d.valueOf() : d);
-        if (dims.length === 1) {
-          const size = dims[0];
-          const result = [];
-          for (let i = 0; i < size; i++) {
-            result.push(flat[i % flat.length]);
-          }
-          return result;
-        }
-        if (dims.length === 2) {
-          const [rows, cols] = dims;
-          const result = [];
-          let idx = 0;
-          for (let i = 0; i < rows; i++) {
-            const row = [];
-            for (let j = 0; j < cols; j++) {
-              row.push(flat[idx % flat.length]);
-              idx++;
-            }
-            result.push(row);
-          }
-          return result;
-        }
-        throw new Error('RESHAPE currently supports up to 2 dimensions');
-      }
-      default:
-        throw new Error(`Unknown builtin function: ${ast.name}`);
-    }
-  }
-}
-    if (ast.type === 'operation') {
-      const left = evaluate(ast.left, env, localEnv);
-      const right = evaluate(ast.right, env, localEnv);
-      if (isNil(left) || isNil(right)) {
-        return NIL;
-      }
-      if (Array.isArray(left) && Array.isArray(right)) {
-        if (['+', '-', '*', '/'].includes(ast.operator)) {
-          if (left.length !== right.length) {
-            throw new Error(`Vector operation requires vectors of same length`);
-          }
-          return left.map((l, i) => {
-            if (isNil(l) || isNil(right[i])) {
-              return NIL;
-            }
-            const operation = {
-              type: 'operation',
-              operator: ast.operator,
-              left: { type: 'value', value: l },
-              right: { type: 'value', value: right[i] }
-            };
-            return evaluate(operation, env, localEnv);
-          });
-        }
-      }
-      if (Fraction.isValidNumber(left) && Array.isArray(right)) {
-        if (['*', '/'].includes(ast.operator)) {
-          return right.map(r => {
-            if (isNil(r)) return NIL;
-            const operation = {
-              type: 'operation',
-              operator: ast.operator,
-              left: { type: 'value', value: left },
-              right: { type: 'value', value: r }
-            };
-            return evaluate(operation, env, localEnv);
-          });
-        }
-      }
-      if (Array.isArray(left) && Fraction.isValidNumber(right)) {
-        if (['*', '/'].includes(ast.operator)) {
-          return left.map(l => {
-            if (isNil(l)) return NIL;
-            const operation = {
-              type: 'operation',
-              operator: ast.operator,
-              left: { type: 'value', value: l },
-              right: { type: 'value', value: right }
-            };
-            return evaluate(operation, env, localEnv);
-          });
-        }
-      }
-      if (['+', '-', '*', '/'].includes(ast.operator)) {
-        if (!Fraction.isValidNumber(left) || !Fraction.isValidNumber(right)) {
-          throw new Error(`Type Error: Operator '${ast.operator}' requires Number type (green) operands`);
-        }
-        switch (ast.operator) {
-          case '+': return left.add(right, false);
-          case '-': return left.subtract(right, false);
-          case '*': return left.multiply(right, false);
-          case '/':
-            if (right.numerator === 0) throw new Error('Division by zero');
-            return left.divide(right, false);
-        }
-      }
-      if (['>', '>=', '=='].includes(ast.operator)) {
-        const leftIsNumber = Fraction.isValidNumber(left);
-        const rightIsNumber = Fraction.isValidNumber(right);
-        const leftType = leftIsNumber ? Types.NUMBER :
-                        Array.isArray(left) ? Types.VECTOR : typeof left;
-        const rightType = rightIsNumber ? Types.NUMBER :
-                         Array.isArray(right) ? Types.VECTOR : typeof right;
-        if (leftType !== rightType) {
-          throw new Error(`Type Error: Cannot compare values of different types (${leftType} vs ${rightType})`);
-        }
-        if (leftIsNumber && rightIsNumber) {
-          switch (ast.operator) {
-            case '>': return left.greaterThan(right);
-            case '>=': return left.greaterThanOrEqual(right);
-            case '==': return left.equals(right);
-          }
-        }
-        if (leftType === Types.STRING || leftType === Types.BOOLEAN) {
-          switch (ast.operator) {
-            case '==': return left === right;
-            case '>': return left > right;
-            case '>=': return left >= right;
-          }
-        }
-      }
-      throw new Error(`Unknown operator: ${ast.operator}`);
-    }
-    if (ast.type === 'value') {
-      return ast.value;
-    }
-    throw new Error(`Unknown AST node type: ${ast.type}`);
-  };
-  const formatValue = (value) => {
-    if (isNil(value)) {
-      return "nil";
-    } else if (Fraction.isValidNumber(value)) {
-      return value.toString();
-    } else if (Array.isArray(value)) {
-      return '[ ' + value.map(formatValue).join(' ') + ' ]';
-    } else if (value === null || value === undefined) {
-      return "undefined";
-    } else {
-      return String(value);
-    }
-  };
-  const executeProgram = (program) => {
-    const backupEnv = cloneEnvironment(environment);
-    try {
-      let result;
-      program.forEach(expr => {
-        result = evaluate(expr);
-      });
-      return result;
-    } catch (error) {
-      environment.variables = backupEnv.variables;
-      environment.functions = backupEnv.functions;
-      throw error;
-    }
-  };
-  const resetEnvironment = () => {
-    environment.variables = {};
-    environment.functions = {};
-  };
-  return {
-    // js/interpreter.js の execute メソッド内の型チェック部分を修正
-execute: (editor) => {
-  try {
-    const tokens = tokenize(editor);
-    if (tokens.length === 0) return "Empty input";
-    tokens.forEach(token => {
-      if (['+', '-', '*', '/', '>', '>=', '==', '='].includes(token.value)) {
-        return;
-      }
-      if (token.value === 'NIL') {
-        return;
-      }
-      if (!isNaN(parseFloat(token.value)) && token.color !== 'green' && !token.value.includes('/')) {
-        if (!tokens.some(t => t.value.includes('/') && t.value.includes(token.value))) {
-          if (token.color !== 'green'){
-            throw new Error(`Type Error: Numeric literals must be Number type (green), found ${token.color} for '${token.value}'`);
-          }
-        }
-      }
-      if (/^[A-Z@][A-Z0-9_]*$/.test(token.value) &&
-          !['@', 'LEN', 'TAKE', 'DROP', 'FOLD', 'MAP', 'FILTER', 'DOT', 'SHAPE', 'RESHAPE'].includes(token.value) &&
-          token.color !== 'red') {
-        throw new Error(`Type Error: Variable names must be Symbol type (red), found ${token.color} for '${token.value}'`);
-      }
-      if (['(', ')'].includes(token.value) && token.color !== 'red') {
-        throw new Error(`Type Error: Parentheses must be Symbol type (red), found ${token.color} for '${token.value}'`);
-      }
-      if (['[', ']'].includes(token.value) && token.color !== 'purple') {
-        throw new Error(`Type Error: Vector brackets must be Vector type (purple), found ${token.color} for '${token.value}'`);
-      }
-      // booleanの型チェックを追加
-      if (['true', 'false'].includes(token.value.toLowerCase()) && token.color !== 'cyan') {
-        throw new Error(`Type Error: Boolean literals must be Boolean type (cyan), found ${token.color} for '${token.value}'`);
-      }
-      // NILの型チェックを追加
-      if (token.value === 'NIL' && token.color !== 'orange') {
-        throw new Error(`Type Error: NIL must be Nil type (orange), found ${token.color} for '${token.value}'`);
-      }
-    });
-    const ast = parse(tokens);
-    const result = executeProgram(ast);
-    return formatValue(result);
-  } catch (err) {
-    return `Error: ${err.message}`;
-  }
-},
-    reset: resetEnvironment,
-    getEnvironment: () => ({ ...environment })
-  };
+         }
+         // Rule 4: For '==' on other object types (vectors, quotations), use reference equality.
+         else if (cmd === '==' && typeof a === 'object' && typeof b === 'object') {
+            console.log(`[DEBUG] Comparing two objects by reference.`);
+            push(a === b);
+         }
+         // Any other case is a type mismatch error.
+         else {
+           const typeA = a.type ? a.type : (Array.isArray(a) ? 'vector' : typeof a);
+           const typeB = b.type ? b.type : (Array.isArray(b) ? 'vector' : typeof b);
+           throw new Error(`Type Error: Cannot compare values of different types: ${typeA} and ${typeB}.`);
+         }
+       }
+
+       // Vector creation
+       else if (cmd === 'VECTOR') {
+           const count = pop();
+           if(!Fraction.isValidNumber(count)) throw new Error('VECTOR requires a numeric count.');
+           const numCount = count.valueOf();
+           if (numCount > dataStack.length) throw new Error('Stack underflow for VECTOR creation.');
+           const vec = [];
+           for (let j = 0; j < numCount; j++) {
+               vec.unshift(pop());
+           }
+           push(vec);
+       }
+
+       // Stack manipulation words
+       else if (cmd === 'DUP') push(peek());
+       else if (cmd === 'DROP') pop();
+       else if (cmd === 'SWAP') { const b = pop(); const a = pop(); push(b); push(a); }
+
+       // Assignment
+       else if (cmd === '=') {
+         const nameToken = pop();
+         const value = pop();
+         if (nameToken.type !== Types.SYMBOL) throw new Error("Assignment target must be a symbol.");
+         const name = nameToken.value;
+         
+         // 代入時も英数字シンボルの大文字チェック
+         if (/^[a-zA-Z0-9]+$/.test(name) && name !== name.toUpperCase()) {
+           throw new Error(`Symbol names with alphanumeric characters must be uppercase: '${name}'. Use '${name.toUpperCase()}' instead.`);
+         }
+         
+         console.log(`[DEBUG] Assigning to "${name}"`);
+         if (value.type === 'quotation') environment.functions[name] = value.value;
+         else environment.variables[name] = value;
+       }
+       
+       // Lazy conditional
+       else if (cmd === 'IF') {
+           const elseBranch = pop();
+           const thenBranch = pop();
+           const condition = pop();
+           if (typeof condition !== 'boolean') throw new Error("Type Error: IF requires a Boolean (cyan) on top of the stack.");
+           if (elseBranch.type !== 'quotation' || thenBranch.type !== 'quotation') throw new Error("Syntax Error: IF requires two quotations {then} {else}.");
+           executeTokens(condition === true ? thenBranch.value : elseBranch.value, localEnv);
+       }
+
+       // Variable/Function/Whitespace lookup and execution
+       else {
+         if (cmd in environment.functions) {
+           console.log(`[DEBUG] Executing function: "${cmd}"`);
+           executeTokens(environment.functions[cmd], localEnv);
+         } else if (cmd in environment.variables) {
+           const value = environment.variables[cmd];
+           // 空のquotationが代入されている場合は、空白文字として扱う（何もpushしない）
+           if (value && value.type === 'quotation' && value.value.length === 0) {
+             console.log(`[DEBUG] "${cmd}" is defined as whitespace (empty quotation), ignoring`);
+             // 何もしない（空白文字として機能）
+           } else {
+             console.log(`[DEBUG] Pushing variable: "${cmd}"`);
+             push(value);
+           }
+         } else if (token.type === Types.WHITESPACE || /^\s+$/.test(cmd)) {
+           console.log(`[DEBUG] Ignoring whitespace: "${cmd}"`);
+         }
+         else {
+           console.log(`[DEBUG] Pushing unevaluated symbol for assignment: "${cmd}"`);
+           push(token);
+         }
+       }
+     }
+     logStackState("Stack at end of token processing:");
+   }
+   logStackState("Final Stack State for this execution context:");
+   console.groupEnd();
+ };
+
+ const formatValue = (value, short = false) => {
+   if (value && value.type === Types.NIL) return "nil";
+   if (Fraction.isValidNumber(value)) return value.toString();
+   if (value && value.type === 'quotation') return short ? "{...}" : `{ ${value.value.map(t=>t.value).join(' ')} }`;
+   if (Array.isArray(value)) return `[ ${value.map(v => formatValue(v, true)).join(' ')} ]`;
+   if (typeof value === 'string') return value;  // 引用符なしで返す
+   if (value === true) return "TRUE";
+   if (value === false) return "FALSE";
+   if (value === null || value === undefined) return "undefined";
+   return String(value);
+ };
+ 
+ return {
+   execute: (editor) => {
+     dataStack = [];
+     try {
+       const tokens = tokenize(editor);
+       if (tokens.length === 0) return "OK (stack empty)";
+       executeTokens(tokens);
+       if (dataStack.length === 0) return "OK (stack empty)";
+       if (dataStack.length > 1) return "Stack: " + `[ ${dataStack.map(v => formatValue(v, true)).join(' ')} ]`;
+       return formatValue(pop());
+     } catch (err) {
+       dataStack = [];
+       console.error("[ERROR]", err);
+       return `Error: ${err.message}`;
+     }
+   },
+ };
 })();
