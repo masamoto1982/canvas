@@ -2,56 +2,141 @@ const tokenize = (editor) => {
   if (!editor) return [];
   const tokens = [];
 
+  // 最長一致でDictionary内のワードを検索する関数
+  const findLongestMatch = (text, startPos) => {
+    const dictionary = interpreter.getDictionary();
+    let longestMatch = null;
+    let longestLength = 0;
+
+    // Dictionary内の全ワードをチェック（長い順にソート済み）
+    for (const word of dictionary) {
+      if (text.substr(startPos).startsWith(word) && word.length > longestLength) {
+        longestMatch = word;
+        longestLength = word.length;
+      }
+    }
+
+    return longestMatch;
+  };
+
+  // テキストをトークンに分解する関数
+  const tokenizeText = (text, color) => {
+    const localTokens = [];
+    let position = 0;
+
+    while (position < text.length) {
+      // 1. まず空白文字をチェック
+      if (/\s/.test(text[position])) {
+        let whitespaceEnd = position;
+        while (whitespaceEnd < text.length && /\s/.test(text[whitespaceEnd])) {
+          whitespaceEnd++;
+        }
+        localTokens.push({
+          value: text.substring(position, whitespaceEnd),
+          color: color,
+          type: Types.WHITESPACE
+        });
+        position = whitespaceEnd;
+        continue;
+      }
+
+      // 2. Dictionary内のワードを最長一致で検索
+      const dictMatch = findLongestMatch(text, position);
+      if (dictMatch) {
+        localTokens.push({
+          value: dictMatch,
+          color: color,
+          type: ColorTypes[color] || Types.SYMBOL
+        });
+        position += dictMatch.length;
+        continue;
+      }
+
+      // 3. 数値をチェック（小数点やスラッシュも含む）
+      if (/[0-9]/.test(text[position])) {
+        let numEnd = position;
+        while (numEnd < text.length && /[0-9./]/.test(text[numEnd])) {
+          numEnd++;
+        }
+        localTokens.push({
+          value: text.substring(position, numEnd),
+          color: color,
+          type: ColorTypes[color] || Types.SYMBOL
+        });
+        position = numEnd;
+        continue;
+      }
+
+      // 4. 演算子や特殊記号をチェック
+      const operators = ['+', '-', '*', '/', '>', '>=', '==', '='];
+      let operatorMatched = false;
+      for (const op of operators.sort((a, b) => b.length - a.length)) {
+        if (text.substr(position).startsWith(op)) {
+          localTokens.push({
+            value: op,
+            color: color,
+            type: ColorTypes[color] || Types.SYMBOL
+          });
+          position += op.length;
+          operatorMatched = true;
+          break;
+        }
+      }
+      if (operatorMatched) continue;
+
+      // 5. それ以外の文字を収集（次の境界まで）
+      let wordEnd = position + 1;
+      while (wordEnd < text.length) {
+        // 次の位置が空白、数字の開始、演算子、またはDictionary内のワードの開始なら停止
+        if (/\s/.test(text[wordEnd]) || 
+            /[0-9]/.test(text[wordEnd]) ||
+            operators.some(op => text.substr(wordEnd).startsWith(op)) ||
+            findLongestMatch(text, wordEnd)) {
+          break;
+        }
+        wordEnd++;
+      }
+
+      localTokens.push({
+        value: text.substring(position, wordEnd),
+        color: color,
+        type: ColorTypes[color] || Types.SYMBOL
+      });
+      position = wordEnd;
+    }
+
+    return localTokens;
+  };
+
   const extractTokens = (node, currentColor = 'red') => {
-    // この関数は、エディタのDOMノードを再帰的に走査します。
-    
-    // ケース1: ノードがプレーンなテキストノードの場合
+    // ケース1: テキストノード
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent;
-      // 親要素の色（型）を取得、または親から継承した色を使用します。
       const color = node.parentNode && node.parentNode.style && node.parentNode.style.color ?
         rgbToColorName(node.parentNode.style.color) :
         currentColor;
 
-      // この正規表現は、特殊文字（{}、[]、@）を区切り文字としてテキストを分割しますが、区切り文字自体はトークンとして保持します。
+      // 特殊文字で分割
       const specialCharRegex = /([\[\]@{}])/g;
-      const mainParts = text.split(specialCharRegex).filter(Boolean); // .filter(Boolean) は空文字列を削除します。
+      const mainParts = text.split(specialCharRegex).filter(Boolean);
 
       for (const part of mainParts) {
-        // partが特殊文字そのものである場合、直接トークンを作成します。
         if (['[', ']', '@', '{', '}'].includes(part)) {
-          let type = Types.SYMBOL; // {} と @ はデフォルトでシンボル
-          if (part === '[' || part === ']') type = Types.VECTOR; // [] はベクターのヒント
+          let type = Types.SYMBOL;
+          if (part === '[' || part === ']') type = Types.VECTOR;
           tokens.push({ value: part, color: color, type: type });
         } else {
-          // 特殊文字でない場合、このpartは通常のワードと空白の混在です。
-          // 以下の正規表現は、空白の連続か、非空白文字の連続にマッチします。
-          const subParts = part.match(/\s+|\S+/g) || [];
-          for (const word of subParts) {
-            // 空白文字の場合は特別な処理
-            if (/^\s+$/.test(word)) {
-              tokens.push({
-                value: word,
-                color: color,
-                type: Types.WHITESPACE  // 空白文字専用の型を設定
-              });
-            } else {
-              // 非空白文字の場合は色に基づいて型を決定
-              tokens.push({
-                value: word,
-                color: color,
-                type: ColorTypes[color] || Types.SYMBOL  // UNDEFINEDではなくSYMBOLをデフォルトに
-              });
-            }
-          }
+          // テキスト部分をトークン化
+          const partTokens = tokenizeText(part, color);
+          tokens.push(...partTokens);
         }
       }
-    } 
-    // ケース2: ノードがBRタグ（改行）の場合。トークン化では無視します。
+    }
+    // ケース2: BR要素（無視）
     else if (node.nodeName === 'BR') {
       // 意図的に空
-    } 
-    // ケース3: ノードが子を持つ要素（<span>や<font>など）の場合。再帰的に処理します。
+    }
+    // ケース3: 子要素を持つノード
     else if (node.childNodes && node.childNodes.length > 0) {
       Array.from(node.childNodes).forEach(child => {
         const nodeColor = node.style && node.style.color ?
@@ -62,14 +147,16 @@ const tokenize = (editor) => {
     }
   };
 
-  // トップレベルのエディタ要素から処理を開始します。
+  // メイン処理
   Array.from(editor.childNodes).forEach(node => {
     extractTokens(node);
   });
 
-  // 最後に、コメント（黄色）としてマークされたトークンをすべて除外します。
+  // コメント（黄色）を除外
   const filteredTokens = tokens.filter(token => token.color !== 'yellow');
 
-  console.log("[DEBUG] Tokens:", filteredTokens);
+  console.log("[DEBUG] Tokens:", filteredTokens.map(t => `"${t.value}"`));
+  console.log("[DEBUG] Dictionary:", interpreter.getDictionary());
+  
   return filteredTokens;
 };
