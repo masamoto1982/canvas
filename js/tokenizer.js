@@ -1,162 +1,100 @@
+// js/tokenizer.js
 const tokenize = (editor) => {
   if (!editor) return [];
   const tokens = [];
-
-  // 最長一致でDictionary内のワードを検索する関数
-  const findLongestMatch = (text, startPos) => {
-    const dictionary = interpreter.getDictionary();
-    let longestMatch = null;
-    let longestLength = 0;
-
-    // Dictionary内の全ワードをチェック（長い順にソート済み）
-    for (const word of dictionary) {
-      if (text.substr(startPos).startsWith(word) && word.length > longestLength) {
-        longestMatch = word;
-        longestLength = word.length;
-      }
+  
+  // js/tokenizer.js の extractTokens 関数内の該当部分
+const extractTokens = (node, currentColor = 'red') => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent;
+    const color = node.parentNode && node.parentNode.style && node.parentNode.style.color ?
+      rgbToColorName(node.parentNode.style.color) :
+      currentColor;
+    
+    // デバッグログ
+    if (text.includes('NIL')) {
+      console.log('Found NIL text:', text, 'with color:', color);
     }
-
-    return longestMatch;
-  };
-
-  // テキストをトークンに分解する関数
-  const tokenizeText = (text, color) => {
-    const localTokens = [];
-    let position = 0;
-
-    while (position < text.length) {
-      // 1. まず空白文字をチェック
-      if (/\s/.test(text[position])) {
-        let whitespaceEnd = position;
-        while (whitespaceEnd < text.length && /\s/.test(text[whitespaceEnd])) {
-          whitespaceEnd++;
-        }
-        localTokens.push({
-          value: text.substring(position, whitespaceEnd),
-          color: color,
-          type: Types.WHITESPACE
-        });
-        position = whitespaceEnd;
-        continue;
-      }
-
-      // 2. Dictionary内のワードを最長一致で検索
-      const dictMatch = findLongestMatch(text, position);
-      if (dictMatch) {
-        localTokens.push({
-          value: dictMatch,
-          color: color,
-          type: ColorTypes[color] || Types.SYMBOL
-        });
-        position += dictMatch.length;
-        continue;
-      }
-
-      // 3. 数値をチェック（小数点やスラッシュも含む）
-      if (/[0-9]/.test(text[position])) {
-        let numEnd = position;
-        while (numEnd < text.length && /[0-9./]/.test(text[numEnd])) {
-          numEnd++;
-        }
-        localTokens.push({
-          value: text.substring(position, numEnd),
-          color: color,
-          type: ColorTypes[color] || Types.SYMBOL
-        });
-        position = numEnd;
-        continue;
-      }
-
-      // 4. 演算子や特殊記号をチェック
-      const operators = ['+', '-', '*', '/', '>', '>=', '==', '='];
-      let operatorMatched = false;
-      for (const op of operators.sort((a, b) => b.length - a.length)) {
-        if (text.substr(position).startsWith(op)) {
-          localTokens.push({
-            value: op,
+    
+    const regex = /(\[|\]|@|\s+)/;
+    const parts = text.split(regex).filter(part => part && part.trim());
+    for (const part of parts) {
+      if (part.trim()) {
+        if (part === '[' || part === ']') {
+          tokens.push({
+            value: part,
             color: color,
-            type: ColorTypes[color] || Types.SYMBOL
+            type: color === 'purple' ? Types.VECTOR : Types.UNDEFINED
           });
-          position += op.length;
-          operatorMatched = true;
-          break;
         }
-      }
-      if (operatorMatched) continue;
-
-      // 5. それ以外の文字を収集（次の境界まで）
-      let wordEnd = position + 1;
-      while (wordEnd < text.length) {
-        // 次の位置が空白、数字の開始、演算子、またはDictionary内のワードの開始なら停止
-        if (/\s/.test(text[wordEnd]) || 
-            /[0-9]/.test(text[wordEnd]) ||
-            operators.some(op => text.substr(wordEnd).startsWith(op)) ||
-            findLongestMatch(text, wordEnd)) {
-          break;
-        }
-        wordEnd++;
-      }
-
-      localTokens.push({
-        value: text.substring(position, wordEnd),
-        color: color,
-        type: ColorTypes[color] || Types.SYMBOL
-      });
-      position = wordEnd;
-    }
-
-    return localTokens;
-  };
-
-  const extractTokens = (node, currentColor = 'red') => {
-    // ケース1: テキストノード
-    if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent;
-      const color = node.parentNode && node.parentNode.style && node.parentNode.style.color ?
-        rgbToColorName(node.parentNode.style.color) :
-        currentColor;
-
-      // 特殊文字で分割
-      const specialCharRegex = /([\[\]@{}])/g;
-      const mainParts = text.split(specialCharRegex).filter(Boolean);
-
-      for (const part of mainParts) {
-        if (['[', ']', '@', '{', '}'].includes(part)) {
-          let type = Types.SYMBOL;
-          if (part === '[' || part === ']') type = Types.VECTOR;
-          tokens.push({ value: part, color: color, type: type });
+        else if (part === '@') {
+          tokens.push({
+            value: part,
+            color: color,
+            type: Types.SYMBOL
+          });
+        } else if (part === 'NIL') {
+          // NILの特別処理
+          console.log('Creating NIL token with color:', color);
+          tokens.push({
+            value: part,
+            color: color,
+            type: color === 'orange' ? Types.NIL : Types.UNDEFINED
+          });
         } else {
-          // テキスト部分をトークン化
-          const partTokens = tokenizeText(part, color);
-          tokens.push(...partTokens);
+          const prefixMatch = part.match(/^(number|boolean|string|symbol|vector|nil|comment):(.+)$/);
+          if (prefixMatch) {
+            const [, type, value] = prefixMatch;
+            const prefixColor = {
+              'number': 'green',
+              'boolean': 'cyan',
+              'string': 'blue',
+              'symbol': 'red',
+              'vector': 'purple',
+              'nil': 'orange',
+              'comment': 'yellow'
+            }[type];
+            // nil:NILの場合の特別処理
+            if (type === 'nil' && value === 'NIL') {
+              tokens.push({
+                value: 'NIL',
+                color: 'orange',
+                type: Types.NIL
+              });
+            } else {
+              tokens.push({
+                value: value,
+                color: prefixColor || color,
+                type: ColorTypes[prefixColor] || Types.UNDEFINED
+              });
+            }
+          } else {
+            tokens.push({
+              value: part,
+              color: color,
+              type: ColorTypes[color] || Types.UNDEFINED
+            });
+          }
         }
       }
     }
-    // ケース2: BR要素（無視）
-    else if (node.nodeName === 'BR') {
-      // 意図的に空
-    }
-    // ケース3: 子要素を持つノード
-    else if (node.childNodes && node.childNodes.length > 0) {
-      Array.from(node.childNodes).forEach(child => {
-        const nodeColor = node.style && node.style.color ?
-          rgbToColorName(node.style.color) :
-          currentColor;
-        extractTokens(child, nodeColor);
-      });
-    }
-  };
-
-  // メイン処理
+  } else if (node.nodeName === 'BR') {
+  } else if (node.childNodes && node.childNodes.length > 0) {
+    Array.from(node.childNodes).forEach(child => {
+      const nodeColor = node.style && node.style.color ?
+        rgbToColorName(node.style.color) :
+        currentColor;
+      extractTokens(child, nodeColor);
+    });
+  }
+};
+  
   Array.from(editor.childNodes).forEach(node => {
     extractTokens(node);
   });
-
-  // コメント（黄色）を除外
+  
+  // コメント色（黄色）のトークンをフィルタリング
   const filteredTokens = tokens.filter(token => token.color !== 'yellow');
-
-  console.log("[DEBUG] Tokens:", filteredTokens.map(t => `"${t.value}"`));
-  console.log("[DEBUG] Dictionary:", interpreter.getDictionary());
   
   return filteredTokens;
 };
