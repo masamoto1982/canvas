@@ -276,36 +276,6 @@ section:last-child {
     transition: background-color 0.1s, transform 0.1s;
 }
 
-/* 記号ドットのスタイル */
-.dot.symbol-dot {
-    background-color: #e0f2fe;
-    color: #0284c7;
-    font-size: 14px;
-}
-
-/* 文字入力用ドットのスタイル */
-.dot.letter-dot {
-    background-color: #f3f4f6;
-    color: #9ca3af;
-}
-
-/* 5×5グリッド対応 */
-@media (max-width: 768px) {
-    .dot {
-        width: 35px;
-        height: 35px;
-        font-size: 12px;
-    }
-    
-    .dot-row {
-        gap: 8px;
-    }
-    
-    #dot-grid {
-        gap: 8px;
-    }
-}
-
 #special-row {
     display: flex;
     justify-content: center;
