@@ -89,30 +89,69 @@ const findSubsetProductMatches = (factors, dotValues) => {
 const isMobileDevice = () => {
   return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Mobi|Android/i.test(navigator.userAgent);
 };
-const focusWithoutKeyboard = (element, callback) => {
-  if (!element) {
-    if (callback) callback();
-    return;
-  }
-  const scrollX = window.scrollX;
-  const scrollY = window.scrollY;
-  const originalInputMode = element.getAttribute('inputmode');
-  element.setAttribute('readonly', 'readonly');
-  element.setAttribute('inputmode', 'none');
+// フォーカス関連のユーティリティ関数を修正
+const focusWithoutKeyboard = (element) => {
+  if (!element || !isMobileDevice()) return;
+  
+  // contenteditable を一時的に無効化
+  element.setAttribute('contenteditable', 'false');
+  element.setAttribute('readonly', 'true');
+  
+  // フォーカスを設定
   element.focus();
+  
+  // 少し遅延してから属性を戻す（キーボードが表示されないようにするため）
   setTimeout(() => {
+    element.setAttribute('contenteditable', 'true');
     element.removeAttribute('readonly');
-    if (callback) {
-      callback();
-    }
-    window.scrollTo(scrollX, scrollY);
-  }, 10);
+  }, 100);
 };
+
 const focusWithKeyboard = (element) => {
   if (!element) return;
-  element.setAttribute('inputmode', 'text');
+  
+  // contenteditable を有効化
+  element.setAttribute('contenteditable', 'true');
   element.removeAttribute('readonly');
+  
+  // フォーカスを設定
   element.focus();
+  
+  // モバイルの場合、明示的にキーボードを表示
+  if (isMobileDevice()) {
+    // 仮想クリックイベントを発火してキーボードを確実に表示
+    setTimeout(() => {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }, 50);
+  }
+};
+
+// d2d-inputに戻った時にキーボードを閉じる
+const hideKeyboard = () => {
+  if (!isMobileDevice()) return;
+  
+  const activeElement = document.activeElement;
+  if (activeElement && (activeElement.id === 'txt-input' || activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+    activeElement.blur();
+    
+    // iOSの場合、ダミー入力を作成してフォーカスを移動
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      const dummy = document.createElement('input');
+      dummy.style.position = 'absolute';
+      dummy.style.left = '-9999px';
+      document.body.appendChild(dummy);
+      dummy.focus();
+      setTimeout(() => {
+        dummy.blur();
+        document.body.removeChild(dummy);
+      }, 100);
+    }
+  }
 };
 const focusOnInput = () => {
   const editor = elements.input;

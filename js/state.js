@@ -1,15 +1,18 @@
+// js/state.js
 const elements = {
   dotGrid: null,
   specialRow: null,
   lineCanvas: null,
   input: null,
-  d2dArea: null,
+  d2dInput: null,  // d2dArea から d2dInput に変更
   output: null,
   executeButton: null,
   clearButton: null,
   outputSection: null,
   textSection: null
 };
+
+// 以下、drawState, specialButtonState, keyState は変更なし
 const drawState = {
   isActive: false,
   detectedDots: new Set(),

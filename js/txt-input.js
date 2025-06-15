@@ -238,43 +238,68 @@ editor.style.caretColor = colorCodes[color];
 };
 
 const setupEditorEvents = () => {
-const editor = elements.input;
-if (!editor) return;
-let justExecuted = false;
-if (isMobileDevice()) {
-  editor.addEventListener('click', (e) => {
-    const wasJustExecuted = justExecuted;
-    justExecuted = false;
-    if (e.isTrusted && !wasJustExecuted) {
-      editor.isKeyboardMode = true;
-      if (isMobileDevice()) {
-        showTextSection();
-      }
-      focusWithKeyboard(editor);
-    }
-  });
-  editor.addEventListener('focus', (e) => {
-    if (justExecuted) {
-      e.preventDefault();
-      editor.blur();
+  const editor = elements.input;
+  if (!editor) return;
+  let justExecuted = false;
+  
+  if (isMobileDevice()) {
+    // キーボードモードフラグを追加
+    editor.isKeyboardMode = false;
+    
+    editor.addEventListener('click', (e) => {
+      const wasJustExecuted = justExecuted;
       justExecuted = false;
-      return;
-    }
-    if (elements.outputSection && !elements.outputSection.classList.contains('hide')) {
-      e.preventDefault();
-      editor.blur();
-      return;
-    }
+      
+      if (e.isTrusted && !wasJustExecuted) {
+        // txt-inputが明示的にクリックされた
+        editor.isKeyboardMode = true;
+        showTextSection();
+        focusWithKeyboard(editor);
+        e.stopPropagation();
+      }
+    });
+    
+    editor.addEventListener('focus', (e) => {
+      if (justExecuted) {
+        e.preventDefault();
+        editor.blur();
+        justExecuted = false;
+        return;
+      }
+      
+      // キーボードモードでない場合はフォーカスを防ぐ
+      if (!editor.isKeyboardMode) {
+        e.preventDefault();
+        editor.blur();
+        return;
+      }
+      
+      if (elements.outputSection && !elements.outputSection.classList.contains('hide')) {
+        e.preventDefault();
+        editor.blur();
+        return;
+      }
+    });
+    
+    editor.addEventListener('blur', (e) => {
+      // フォーカスが外れたらキーボードモードを解除
+      setTimeout(() => {
+        if (document.activeElement !== editor) {
+          editor.isKeyboardMode = false;
+        }
+      }, 100);
+    });
+    
+    editor.addEventListener('input', (e) => {
+      setTimeout(() => {
+        detectAndApplyTypePrefix(editor);
+      }, 0);
+    });
+  }
+  
+  window.addEventListener('execute-code-start', () => {
+    justExecuted = true;
   });
-  editor.addEventListener('input', (e) => {
-    setTimeout(() => {
-      detectAndApplyTypePrefix(editor);
-    }, 0);
-  });
-}
-window.addEventListener('execute-code-start', () => {
-  justExecuted = true;
-});
 };
 function initRichTextEditor() {
 const editor = document.getElementById('txt-input');
