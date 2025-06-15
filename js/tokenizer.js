@@ -127,7 +127,8 @@ const tokenize = (editor) => {
     processTypedWord(word, color);
   };
   
-  const processTypedWord = (word, color) => {
+// js/tokenizer.js の processTypedWord 関数を修正
+const processTypedWord = (word, color) => {
     let token = {
       value: word,
       color: color,
@@ -141,9 +142,9 @@ const tokenize = (editor) => {
         throw new Error(`Type Error: Invalid number literal '${word}'`);
       }
     } else if (color === 'cyan') {
-      // ブール型の検証
-      if (!['true', 'false'].includes(word.toLowerCase())) {
-        throw new Error(`Type Error: Invalid boolean literal '${word}'`);
+      // ブール型の検証（大文字のみ許可）
+      if (!['TRUE', 'FALSE'].includes(word)) {
+        throw new Error(`Type Error: Boolean literals must be TRUE or FALSE (uppercase): '${word}'`);
       }
     } else if (color === 'blue') {
       // 文字列型：そのまま受け入れる
@@ -153,9 +154,9 @@ const tokenize = (editor) => {
         throw new Error(`Type Error: English symbols must be uppercase: '${word}'`);
       }
     } else if (color === 'orange') {
-      // nil型の検証
-      if (word !== 'nil') {
-        throw new Error(`Type Error: Invalid nil literal '${word}'`);
+      // nil型の検証（大文字のみ）
+      if (word !== 'NIL') {
+        throw new Error(`Type Error: Nil literal must be NIL (uppercase): '${word}'`);
       }
     }
     

@@ -424,7 +424,7 @@ const interpreter = (() => {
     // ブール値
     if (token.type === Types.BOOLEAN) {
       stack.push({
-        value: token.value.toLowerCase() === 'true',
+        value: token.value === 'TRUE',  // 大文字で比較
         type: Types.BOOLEAN,
         color: 'cyan'
       });
