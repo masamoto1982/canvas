@@ -382,7 +382,7 @@ colorButtons.forEach(btn => {
  });
 });
 
-eeditor.addEventListener('keydown', (e) => {
+editor.addEventListener('keydown', (e) => {
  if (e.key === 'Enter' && e.shiftKey) {
    e.preventDefault();
    executeCode();
