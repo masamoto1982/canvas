@@ -382,7 +382,7 @@ colorButtons.forEach(btn => {
  });
 });
 
-editor.addEventListener('keydown', (e) => {
+eeditor.addEventListener('keydown', (e) => {
  if (e.key === 'Enter' && e.shiftKey) {
    e.preventDefault();
    executeCode();
@@ -399,8 +399,6 @@ editor.addEventListener('keydown', (e) => {
    else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); applyColor('blue'); return; }
    else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); applyColor('green'); return; }
    else if (e.key === 'c' || e.key === 'C') { e.preventDefault(); applyColor('cyan'); return; }
-   else if (e.key === 'p' || e.key === 'P') { e.preventDefault(); applyColor('purple'); return; }
-   else if (e.key === 'o' || e.key === 'O') { e.preventDefault(); applyColor('orange'); return; }
    else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); applyColor('yellow'); return; }
    return;
  }
