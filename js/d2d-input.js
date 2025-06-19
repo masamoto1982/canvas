@@ -1,16 +1,18 @@
 const clearCanvas = () => {
-  const lineCtx = elements.lineCanvas ? elements.lineCanvas.getContext('2d') : null;
-  if (lineCtx && elements.lineCanvas) {
-    lineCtx.clearRect(0, 0, elements.lineCanvas.width, elements.lineCanvas.height);
+  const ctx = drawState.canvasContext;
+  if (ctx && elements.lineCanvas) {
+    ctx.clearRect(0, 0, elements.lineCanvas.width, elements.lineCanvas.height);
+    drawState.lineSegments = [];
   }
 };
+
 const resetDrawState = (keepActive = false) => {
   drawState.isActive = keepActive;
   if (drawState.detectedDots.size > 0) {
     drawState.detectedDots.forEach(dot => dot.classList.remove('detected'));
     drawState.detectedDots.clear();
   }
-  drawState.totalValue = 1;
+  drawState.groupProducts = [1, 1, 1, 1];
   drawState.currentStrokeDetected = false;
   drawState.hasMoved = false;
   drawState.isDrawingMode = false;
@@ -19,15 +21,16 @@ const resetDrawState = (keepActive = false) => {
   drawState.lastDotX = 0;
   drawState.lastDotY = 0;
   drawState.currentLineColor = null;
+  drawState.lineSegments = [];
   if (!keepActive) drawState.lastStrokeTime = 0;
   clearTimeout(drawState.strokeTimer);
   drawState.strokeTimer = null;
 };
+
 const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => {
-  const lineCanvas = elements.lineCanvas;
-  if (!lineCanvas) return;
-  const ctx = lineCanvas.getContext('2d');
+  const ctx = drawState.canvasContext;
   if (!ctx) return;
+  
   ctx.strokeStyle = colorCodes[color] || colorCodes['yellow'];
   ctx.lineWidth = 5;
   ctx.lineCap = 'round';
@@ -35,32 +38,67 @@ const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => {
   ctx.moveTo(fromX, fromY);
   ctx.lineTo(toX, toY);
   ctx.stroke();
+  
+  // 線分を記録
+  drawState.lineSegments.push({fromX, fromY, toX, toY, color});
 };
-const recognizeLetterWithErrorCorrection = (totalValue) => {
-  if (letterPatterns[totalValue]) {
-    console.log(`完全一致: ${totalValue} → ${letterPatterns[totalValue]}`);
-    return letterPatterns[totalValue];
+
+const redrawAllLines = () => {
+  const ctx = drawState.canvasContext;
+  if (!ctx) return;
+  
+  ctx.clearRect(0, 0, elements.lineCanvas.width, elements.lineCanvas.height);
+  
+  drawState.lineSegments.forEach(segment => {
+    ctx.strokeStyle = colorCodes[segment.color] || colorCodes['yellow'];
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(segment.fromX, segment.fromY);
+    ctx.lineTo(segment.toX, segment.toY);
+    ctx.stroke();
+  });
+};
+
+const recognizeLetterWithGroups = (groupProducts) => {
+  const key = `${groupProducts[0]}_${groupProducts[1]}_${groupProducts[2]}_${groupProducts[3]}`;
+  
+  if (letterPatterns[key]) {
+    console.log(`パターン一致: ${key} → ${letterPatterns[key]}`);
+    return letterPatterns[key];
   }
-  if (complexPatterns && complexPatterns[totalValue]) {
-    console.log(`複合パターン一致: ${totalValue} → ${complexPatterns[totalValue]}`);
-    return complexPatterns[totalValue];
-  }
-  const factors = getPrimeFactors(totalValue);
-  const validFactors = factors.filter(f => dotValues.includes(f));
-  if (validFactors.length > 0) {
-    const correctedValue = validFactors.reduce((a, b) => a * b, 1);
-    if (letterPatterns[correctedValue]) {
-      console.log(`誤り訂正成功: ${totalValue} → ${correctedValue} → ${letterPatterns[correctedValue]}`);
-      return letterPatterns[correctedValue];
+  
+  // 部分一致を試みる（いくつかのグループが1の場合）
+  let bestMatch = null;
+  let bestScore = 0;
+  
+  for (const [patternKey, char] of Object.entries(letterPatterns)) {
+    const pattern = patternKey.split('_').map(Number);
+    let score = 0;
+    
+    for (let i = 0; i < 4; i++) {
+      if (pattern[i] === groupProducts[i]) {
+        score += (groupProducts[i] > 1) ? 2 : 1;
+      } else if (pattern[i] === 1 || groupProducts[i] === 1) {
+        // 片方が1の場合は部分点
+        score += 0.5;
+      }
+    }
+    
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = char;
     }
   }
-  const candidatePatterns = findSubsetProductMatches(validFactors, dotValues);
-  if (candidatePatterns.length > 0) {
-    console.log(`部分一致推測: ${totalValue} → ${candidatePatterns[0].letter}`);
-    return candidatePatterns[0].letter;
+  
+  if (bestMatch && bestScore >= 3) {
+    console.log(`部分一致: ${key} → ${bestMatch} (スコア: ${bestScore})`);
+    return bestMatch;
   }
+  
   return null;
 };
+
 const showRecognitionFeedback = (character) => {
   if (!elements.d2dArea || !character) return;
   const fb = document.createElement('div');
@@ -69,14 +107,15 @@ const showRecognitionFeedback = (character) => {
   elements.d2dArea.appendChild(fb);
   setTimeout(() => fb.remove(), 800);
 };
+
 const endDrawing = () => {
   if (!drawState.isActive) return;
   const now = Date.now();
   if (drawState.currentStrokeDetected) {
     clearTimeout(drawState.strokeTimer);
     drawState.strokeTimer = setTimeout(() => {
-      if (drawState.detectedDots.size > 0 && drawState.totalValue > 1) {
-        const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
+      if (drawState.detectedDots.size > 0) {
+        const rec = recognizeLetterWithGroups(drawState.groupProducts);
         if (rec) {
           if (isMobileDevice()) {
             showTextSection();
@@ -104,57 +143,97 @@ const endDrawing = () => {
   }
   drawState.lastStrokeTime = now;
 };
+
 const addDetectedDot = (dot) => {
   if (!dot || drawState.detectedDots.has(dot)) return;
   dot.classList.add('detected');
   drawState.detectedDots.add(dot);
   drawState.detectedDotsList.push(dot);
   drawState.currentStrokeDetected = true;
-  const v = parseInt(dot.dataset.value, 10);
-  if (!isNaN(v)) {
-    drawState.totalValue *= v;
+  
+  const dotIndex = parseInt(dot.dataset.index, 10);
+  const primes = dotGroupPrimes[dotIndex];
+  if (primes) {
+    for (let i = 0; i < 4; i++) {
+      if (primes[i] !== null) {
+        drawState.groupProducts[i] *= primes[i];
+      }
+    }
   }
-  const rect = dot.getBoundingClientRect();
-  const dotX = rect.left + rect.width / 2;
-  const dotY = rect.top + rect.height / 2;
-  if (drawState.lastDetectedDot) {
-    const activeColorBtn = document.querySelector('.color-btn.active');
-    const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
-    drawLineBetweenDots(
-      drawState.lastDotX - elements.d2dArea.getBoundingClientRect().left,
-      drawState.lastDotY - elements.d2dArea.getBoundingClientRect().top,
-      dotX - elements.d2dArea.getBoundingClientRect().left,
-      dotY - elements.d2dArea.getBoundingClientRect().top,
-      currentColor
-    );
-    drawState.currentLineColor = currentColor;
+  
+  const cachedPos = drawState.dotPositionCache.get(dotIndex);
+  if (cachedPos) {
+    if (drawState.lastDetectedDot) {
+      const activeColorBtn = document.querySelector('.color-btn.active');
+      const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
+      const areaRect = elements.d2dArea.getBoundingClientRect();
+      drawLineBetweenDots(
+        drawState.lastDotX - areaRect.left,
+        drawState.lastDotY - areaRect.top,
+        cachedPos.x - areaRect.left,
+        cachedPos.y - areaRect.top,
+        currentColor
+      );
+      drawState.currentLineColor = currentColor;
+    }
+    drawState.lastDetectedDot = dot;
+    drawState.lastDotX = cachedPos.x;
+    drawState.lastDotY = cachedPos.y;
   }
-  drawState.lastDetectedDot = dot;
-  drawState.lastDotX = dotX;
-  drawState.lastDotY = dotY;
+  
   clearTimeout(drawState.strokeTimer);
   drawState.strokeTimer = null;
 };
+
 const detectDot = (x, y) => {
-  if (!drawState.isActive || !elements.dotGrid) return;
+  if (!drawState.isActive || !drawState.spatialIndex) return;
   const now = Date.now();
   if (now - drawState.lastDetectionTime < CONFIG.sensitivity.debounceTime) return;
   drawState.lastDetectionTime = now;
+  
   const hitRadius = CONFIG.sensitivity.hitRadius;
-  elements.d2dArea.querySelectorAll('.dot').forEach(dot => {
-    if (drawState.detectedDots.has(dot)) return;
-    const r = dot.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    const dist = Math.hypot(x - cx, y - cy);
-    if (dist <= hitRadius) {
-      addDetectedDot(dot);
-      clearTimeout(drawState.strokeTimer);
-      drawState.strokeTimer = null;
-      drawState.lastStrokeTime = Date.now();
+  const nearbyKeys = spatialIndexHelpers.getNearbyGridKeys(x, y, hitRadius);
+  
+  for (const key of nearbyKeys) {
+    const dotsInGrid = drawState.spatialIndex.get(key);
+    if (!dotsInGrid) continue;
+    
+    for (const dotInfo of dotsInGrid) {
+      if (drawState.detectedDots.has(dotInfo.element)) continue;
+      
+      const dist = Math.hypot(x - dotInfo.x, y - dotInfo.y);
+      if (dist <= hitRadius) {
+        addDetectedDot(dotInfo.element);
+        drawState.lastStrokeTime = Date.now();
+        return; // 最初に見つかったドットで終了
+      }
     }
+  }
+};
+
+const updateDotPositionCache = () => {
+  drawState.dotPositionCache.clear();
+  drawState.spatialIndex = new Map();
+  
+  const dots = elements.d2dArea.querySelectorAll('.dot');
+  dots.forEach(dot => {
+    const rect = dot.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const index = parseInt(dot.dataset.index, 10);
+    
+    const dotInfo = { x, y, element: dot, index };
+    drawState.dotPositionCache.set(index, dotInfo);
+    
+    // 空間インデックスに追加
+    const gridKey = spatialIndexHelpers.getGridKey(x, y);
+    if (!drawState.spatialIndex.has(gridKey)) {
+      drawState.spatialIndex.set(gridKey, []);
+    }
+    drawState.spatialIndex.get(gridKey).push(dotInfo);
   });
 };
+
 const handlePointerDown = (e, el) => {
   if (!e || !el) return;
   if (document.activeElement === elements.input && elements.input.isKeyboardMode) {
@@ -214,21 +293,28 @@ const handlePointerDown = (e, el) => {
     clearCanvas();
   }
 };
+
 const redrawExistingLines = (currentColor) => {
   if (drawState.detectedDotsList.length <= 1) return;
   const dots = drawState.detectedDotsList;
+  const areaRect = elements.d2dArea.getBoundingClientRect();
   for (let i = 1; i < dots.length; i++) {
-    const prevDot = dots[i-1];
-    const currDot = dots[i];
-    const prevRect = prevDot.getBoundingClientRect();
-    const currRect = currDot.getBoundingClientRect();
-    const prevX = prevRect.left + prevRect.width / 2 - elements.d2dArea.getBoundingClientRect().left;
-    const prevY = prevRect.top + prevRect.height / 2 - elements.d2dArea.getBoundingClientRect().top;
-    const currX = currRect.left + currRect.width / 2 - elements.d2dArea.getBoundingClientRect().left;
-    const currY = currRect.top + currRect.height / 2 - elements.d2dArea.getBoundingClientRect().top;
-    drawLineBetweenDots(prevX, prevY, currX, currY, currentColor);
+    const prevIndex = parseInt(dots[i-1].dataset.index, 10);
+    const currIndex = parseInt(dots[i].dataset.index, 10);
+    const prevPos = drawState.dotPositionCache.get(prevIndex);
+    const currPos = drawState.dotPositionCache.get(currIndex);
+    if (prevPos && currPos) {
+      drawLineBetweenDots(
+        prevPos.x - areaRect.left,
+        prevPos.y - areaRect.top,
+        currPos.x - areaRect.left,
+        currPos.y - areaRect.top,
+        currentColor
+      );
+    }
   }
 };
+
 const handlePointerMove = (e) => {
   if (!drawState.isActive || e.pointerId !== drawState.currentTouchId) return;
   const dx = e.clientX - drawState.pointerStartX;
@@ -247,31 +333,29 @@ const handlePointerMove = (e) => {
     if (drawState.isDrawingMode && drawState.lastDetectedDot) {
       const activeColorBtn = document.querySelector('.color-btn.active');
       const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
-      const lineCanvas = elements.lineCanvas;
-      if (lineCanvas) {
-        const ctx = lineCanvas.getContext('2d');
-        if (ctx) {
-          clearCanvas();
-          redrawExistingLines(currentColor);
-          ctx.strokeStyle = colorCodes[currentColor] || colorCodes['red'];
-          ctx.lineWidth = 5;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(
-            drawState.lastDotX - elements.d2dArea.getBoundingClientRect().left,
-            drawState.lastDotY - elements.d2dArea.getBoundingClientRect().top
-          );
-          ctx.lineTo(
-            e.clientX - elements.d2dArea.getBoundingClientRect().left,
-            e.clientY - elements.d2dArea.getBoundingClientRect().top
-          );
-          ctx.stroke();
-        }
+      const ctx = drawState.canvasContext;
+      if (ctx) {
+        redrawAllLines();
+        const areaRect = elements.d2dArea.getBoundingClientRect();
+        ctx.strokeStyle = colorCodes[currentColor] || colorCodes['red'];
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(
+          drawState.lastDotX - areaRect.left,
+          drawState.lastDotY - areaRect.top
+        );
+        ctx.lineTo(
+          e.clientX - areaRect.left,
+          e.clientY - areaRect.top
+        );
+        ctx.stroke();
       }
     }
     detectDot(e.clientX, e.clientY);
   }
 };
+
 const handlePointerUp = (e) => {
   if (e.pointerId !== drawState.currentTouchId) return;
   try {
@@ -300,6 +384,7 @@ const handlePointerUp = (e) => {
     elements.d2dArea.blur();
   }
 };
+
 const resizeCanvas = () => {
   const d2dArea = elements.d2dArea;
   const canvas = elements.lineCanvas;
@@ -314,85 +399,102 @@ const resizeCanvas = () => {
   canvas.height = d2dArea.clientHeight - pt - pb;
   canvas.style.left = `${pl}px`;
   canvas.style.top = `${pt}px`;
-  clearCanvas();
+  
+  // コンテキストをキャッシュ
+ drawState.canvasContext = canvas.getContext('2d');
+ 
+ clearCanvas();
+ updateDotPositionCache();
 };
+
 function initKeypad() {
-  if (!elements.dotGrid || !elements.specialRow) {
-    console.error("Required grid elements not found! dotGrid:", elements.dotGrid, "specialRow:", elements.specialRow);
-    return;
-  }
-  elements.dotGrid.innerHTML = '';
-  elements.specialRow.innerHTML = '';
-  CONFIG.layout.gridRows = 3;
-  CONFIG.layout.gridCols = 3;
-  for (let r = 0; r < CONFIG.layout.gridRows; r++) {
-    const row = document.createElement('div');
-    row.className = 'dot-row';
-    for (let c = 0; c < CONFIG.layout.gridCols; c++) {
-      const idx = r * CONFIG.layout.gridCols + c;
-      if (idx >= dotValues.length) continue;
-      const value = dotValues[idx];
-      const dot = document.createElement('div');
-      dot.className = 'dot';
-      dot.dataset.index = idx;
-      dot.dataset.value = value;
-      const position = idx + 1;
-      dot.textContent = position.toString();
-      dot.classList.add('numeric');
-      dot.dataset.digit = position.toString();
-      row.appendChild(dot);
-    }
-    elements.dotGrid.appendChild(row);
-  }
-  const deleteBtn = document.createElement('div');
-  deleteBtn.className = 'special-button delete';
-  deleteBtn.textContent = '削除';
-  deleteBtn.dataset.action = 'delete';
-  deleteBtn.title = '削除 (ダブルタップで単語削除)';
-  elements.specialRow.appendChild(deleteBtn);
-  const zeroBtn = document.createElement('div');
-  zeroBtn.className = 'dot numeric';
-  zeroBtn.textContent = '0';
-  zeroBtn.dataset.digit = '0';
-  zeroBtn.dataset.index = 'special_0';
-  zeroBtn.dataset.value = '1';
-  elements.specialRow.appendChild(zeroBtn);
-  const spaceBtn = document.createElement('div');
-  spaceBtn.className = 'special-button space';
-  spaceBtn.textContent = '空白/改行';
-  spaceBtn.dataset.action = 'space';
-  spaceBtn.title = 'シングルクリック: 空白挿入\nダブルクリック: 改行';
-  elements.specialRow.appendChild(spaceBtn);
-  if (elements.d2dArea) {
-    elements.d2dArea.tabIndex = -1;
-    elements.d2dArea.setAttribute('inputmode', 'none');
-    elements.d2dArea.setAttribute('aria-hidden', 'true');
-    const style = document.createElement('style');
-    style.textContent = `
-      #d2d-input {
-        -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
-        -webkit-tap-highlight-color: transparent; outline: none;
-      }
-      #d2d-input:focus { outline: none; }
-    `;
-    document.head.appendChild(style);
-  }
-  updateConfigStyles();
-  resizeCanvas();
-  setupDotEventListeners();
-  setupSpecialButtonListeners();
+ if (!elements.dotGrid || !elements.specialRow) {
+   console.error("Required grid elements not found! dotGrid:", elements.dotGrid, "specialRow:", elements.specialRow);
+   return;
+ }
+ elements.dotGrid.innerHTML = '';
+ elements.specialRow.innerHTML = '';
+ CONFIG.layout.gridRows = 3;
+ CONFIG.layout.gridCols = 3;
+ for (let r = 0; r < CONFIG.layout.gridRows; r++) {
+   const row = document.createElement('div');
+   row.className = 'dot-row';
+   for (let c = 0; c < CONFIG.layout.gridCols; c++) {
+     const idx = r * CONFIG.layout.gridCols + c;
+     const position = idx + 1;
+     const dot = document.createElement('div');
+     dot.className = 'dot';
+     dot.dataset.index = position;
+     dot.textContent = position.toString();
+     dot.classList.add('numeric');
+     dot.dataset.digit = position.toString();
+     row.appendChild(dot);
+   }
+   elements.dotGrid.appendChild(row);
+ }
+ const deleteBtn = document.createElement('div');
+ deleteBtn.className = 'special-button delete';
+ deleteBtn.textContent = '削除';
+ deleteBtn.dataset.action = 'delete';
+ deleteBtn.title = '削除 (ダブルタップで単語削除)';
+ elements.specialRow.appendChild(deleteBtn);
+ const zeroBtn = document.createElement('div');
+ zeroBtn.className = 'dot numeric';
+ zeroBtn.textContent = '0';
+ zeroBtn.dataset.digit = '0';
+ zeroBtn.dataset.index = 'special_0';
+ elements.specialRow.appendChild(zeroBtn);
+ const spaceBtn = document.createElement('div');
+ spaceBtn.className = 'special-button space';
+ spaceBtn.textContent = '空白/改行';
+ spaceBtn.dataset.action = 'space';
+ spaceBtn.title = 'シングルクリック: 空白挿入\nダブルクリック: 改行';
+ elements.specialRow.appendChild(spaceBtn);
+ if (elements.d2dArea) {
+   elements.d2dArea.tabIndex = -1;
+   elements.d2dArea.setAttribute('inputmode', 'none');
+   elements.d2dArea.setAttribute('aria-hidden', 'true');
+   const style = document.createElement('style');
+   style.textContent = `
+     #d2d-input {
+       -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+       -webkit-tap-highlight-color: transparent; outline: none;
+     }
+     #d2d-input:focus { outline: none; }
+   `;
+   document.head.appendChild(style);
+ }
+ updateConfigStyles();
+ resizeCanvas();
+ setupDotEventListeners();
+ setupSpecialButtonListeners();
+ 
+ // 初期化時に位置をキャッシュ
+ setTimeout(() => {
+   updateDotPositionCache();
+ }, 100);
 }
+
 const setupDotEventListeners = () => {
-  if (!elements.d2dArea) return;
-  elements.d2dArea.addEventListener('focus', (e) => {
-    if (elements.d2dArea) elements.d2dArea.blur();
-    e.preventDefault();
-  }, false);
-  elements.d2dArea.setAttribute('tabindex', '-1');
-  elements.d2dArea.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    if (e.target.classList.contains('dot')) {
-      handlePointerDown(e, e.target);
-    }
-  }, { passive: false });
+ if (!elements.d2dArea) return;
+ elements.d2dArea.addEventListener('focus', (e) => {
+   if (elements.d2dArea) elements.d2dArea.blur();
+   e.preventDefault();
+ }, false);
+ elements.d2dArea.setAttribute('tabindex', '-1');
+ elements.d2dArea.addEventListener('pointerdown', (e) => {
+   e.preventDefault();
+   if (e.target.classList.contains('dot')) {
+     handlePointerDown(e, e.target);
+   }
+ }, { passive: false });
+ 
+ // ウィンドウリサイズ時に位置を再計算
+ let resizeTimer;
+ window.addEventListener('resize', () => {
+   clearTimeout(resizeTimer);
+   resizeTimer = setTimeout(() => {
+     updateDotPositionCache();
+   }, 100);
+ });
 };

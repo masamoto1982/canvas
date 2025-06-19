@@ -111,7 +111,9 @@ const addColorButtonStyles = () => {
 };
 const initResponsiveLayout = () => {
   const checkLayout = () => {
-    resizeCanvas();
+  resizeCanvas();
+  // 位置キャッシュを更新
+  updateDotPositionCache();
     if (isMobileDevice()) {
       if (elements.textSection && elements.outputSection) {
         elements.outputSection.classList.add('hide');
