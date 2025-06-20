@@ -11,11 +11,11 @@
 <body>
  <article>
    <h1><a href="https://github.com/masamoto1982" target="_blank">canvas</a>
-     <span class="version">ver.202506200032</span>
+     <span class="version">ver.202506210100</span>
    </h1>
    <div id="mobile-container">
      <div id="upper-half">
-       <section id="output-section" class="output-section hide">
+       <section id="output-section" class="output-section">
          <h2>output</h2>
          <textarea id="output" readonly>
          </textarea>
@@ -37,15 +37,21 @@
 </div>
        </section>
      </div>
-     <section id="d2d-section">
-       <h2>d2d-input</h2>
-       <div id="d2d-input">
-         <div id="dot-grid">
+     <section id="memory-section">
+       <h2>memory</h2>
+       <div id="memory-area">
+         <div id="stack-area" class="memory-subsection">
+           <h3>stack</h3>
+           <div id="stack-content" class="memory-content">
+             <div class="empty-message">empty</div>
+           </div>
          </div>
-         <div id="special-row">
+         <div id="register-area" class="memory-subsection">
+           <h3>register</h3>
+           <div id="register-content" class="memory-content">
+             <div class="empty-message">empty</div>
+           </div>
          </div>
-         <canvas id="line-canvas">
-         </canvas>
        </div>
      </section>
    </div>
@@ -57,7 +63,6 @@
  <script src="js/tokenizer.js"></script>
  <script src="js/interpreter.js"></script>
  <script src="js/txt-input.js"></script>
- <script src="js/d2d-input.js"></script>
  <script src="js/main.js"></script>
 </body>
 

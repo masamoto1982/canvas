@@ -33,6 +33,13 @@ h2 {
     color: #a0a0a0;
 }
 
+h3 {
+    text-align: center;
+    color: #b0b0b0;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
 section {
     border: 2px dotted #cccccc;
     padding: 10px;
@@ -56,7 +63,7 @@ section:last-child {
 #output {
     resize: vertical;
     min-height: 80px;
-    height: 500px;
+    height: 200px;
     max-height: 300px;
     background-color: #f8f8f8;
     transition: background-color 0.3s;
@@ -66,7 +73,7 @@ section:last-child {
 #txt-input {
     resize: vertical;
     min-height: 80px;
-    height: 500px;
+    height: 200px;
     max-height: 500px;
     transition: background-color 0.3s;
     overflow-y: auto;
@@ -90,7 +97,7 @@ section:last-child {
 
 #txt-input.editor {
     min-height: 80px;
-    height: 500px;
+    height: 200px;
     max-height: 300px;
     border: 1px solid #cccccc;
     border-radius: 4px;
@@ -204,152 +211,64 @@ section:last-child {
     min-height: 120px;
 }
 
-#d2d-input {
-    position: relative;
-    user-select: none;
-    margin-top: 5px;
+/* Memory section styles */
+#memory-section {
+    min-height: 200px;
 }
 
-#dot-grid {
+#memory-area {
+    display: flex;
+    gap: 10px;
+    height: 100%;
+}
+
+.memory-subsection {
+    flex: 1;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 8px;
+    background-color: #f8f8f8;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 10px;
-    align-items: center;
-    padding: 5px;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
 }
 
-.dot-row {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
+.memory-content {
+    flex: 1;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.4;
 }
 
-.dot {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    border: 1px solid #cccccc;
-    background-color: #cccccc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    font-weight: bold;
-    color: #aaa;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.1s;
-    flex-shrink: 0;
-    touch-action: none;
-    box-sizing: border-box;
+.memory-item {
+    padding: 2px 4px;
+    border-bottom: 1px solid #eee;
 }
 
-.dot.numeric {
-    background-color: #cccccc;
-    color: #ffffff;
-    font-size: 16px;
+.memory-item:last-child {
+    border-bottom: none;
 }
 
-.dot.word-dot {
-    background-color: #dbeafe;
-    color: #3b82f6;
+.memory-item .index {
+    color: #888;
     font-size: 12px;
-    overflow: hidden;
+    margin-right: 8px;
+}
+
+.memory-item .value {
+    color: #333;
+}
+
+.memory-item .type {
+    color: #666;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.empty-message {
+    color: #aaa;
     text-align: center;
-    line-height: 1.2;
-}
-
-.dot.detected {
-    background-color: #fca5a5;
-    border-color: #ef4444;
-    transform: scale(0.95);
-}
-
-.dot.tapped-feedback {
-    background-color: #fde68a;
-    transform: scale(0.95);
-    transition: background-color 0.1s, transform 0.1s;
-}
-
-#special-row {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.special-button {
-    width: 100px;
-    height: 45px;
-    border-radius: 10px;
-    border: 1px solid #cccccc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    background-color: #e5e7eb;
-    flex-shrink: 0;
-    transition: transform 0.1s, background-color 0.1s;
-    touch-action: manipulation;
-    user-select: none;
-    -webkit-user-select: none;
-    -ms-user-select: none;
-    text-align: center;
-}
-
-.special-button.delete {
-    background-color: #f8f8f8;
-}
-
-.special-button.space {
-    background-color: #f8f8f8;
-}
-
-.special-button:active {
-    background-color: #9ca3af;
-}
-
-.special-button.long-pressed {
-    background-color: #fde68a;
-    transform: scale(0.95);
-}
-
-.special-button.combined-pressed {
-    background-color: #93c5fd;
-    transform: scale(0.95);
-}
-
-.special-button.clicked {
-    background-color: #e5e7eb;
-    transform: scale(0.95);
-    transition: transform 0.1s, background-color 0.1s;
-}
-
-.special-button.double-clicked {
-    background-color: #93c5fd;
-    transform: scale(0.95);
-    transition: transform 0.1s, background-color 0.1s;
-}
-
-#special-row .dot.numeric {
-    flex-shrink: 0;
-}
-
-#line-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 10;
+    padding: 20px;
 }
 
 .button-container {
@@ -406,44 +325,6 @@ section:last-child {
     background-color: #017551;
 }
 
-.recognition-feedback {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 50%;
-    width: 120px;
-    height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 60px;
-    font-weight: bold;
-    color: #3b82f6;
-    animation: fadeOut 0.8s ease-out forwards;
-    pointer-events: none;
-    z-index: 100;
-}
-
-@keyframes fadeOut {
-    0% {
-        opacity: 1;
-    }
-    70% {
-        opacity: 1;
-    }
-    100% {
-        opacity: 0;
-    }
-}
-
-@keyframes feedback-pulse {
-    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-    50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
-}
-
 #mobile-container {
     display: block;
 }
@@ -454,12 +335,7 @@ section:last-child {
 }
 
 .hide {
-    display: block;
-}
-
-#output,
-#txt-input {
-    height: 200px;
+    display: none !important;
 }
 
 @media (max-width: 768px) {
@@ -491,13 +367,9 @@ section:last-child {
       height: auto;
     }
 
-    .hide {
-        display: none !important;
-    }
-
-    #d2d-section {
+    #memory-section {
         height: 30vh;
-        min-height: 280px;
+        min-height: 200px;
     }
 
     body {
