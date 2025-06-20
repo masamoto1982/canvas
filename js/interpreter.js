@@ -408,83 +408,6 @@ const interpreter = (() => {
     return true;
   };
   
-  // トークンの評価
-  const evaluateToken = (token) => {
-    // 数値
-    if (token.type === Types.NUMBER) {
-      const fraction = Fraction.fromString(token.value);
-      stack.push({
-        value: fraction,
-        type: Types.NUMBER,
-        color: 'green'
-      });
-      return;
-    }
-    
-    // ブール値
-    if (token.type === Types.BOOLEAN) {
-      stack.push({
-        value: token.value === 'TRUE',  // 大文字で比較
-        type: Types.BOOLEAN,
-        color: 'cyan'
-      });
-      return;
-    }
-    
-    // 文字列
-    if (token.type === Types.STRING) {
-      stack.push({
-        value: token.value,
-        type: Types.STRING,
-        color: 'blue'
-      });
-      return;
-    }
-    
-    // nil
-    if (token.type === Types.NIL) {
-      stack.push({
-        value: null,
-        type: Types.NIL,
-        color: 'orange'
-      });
-      return;
-    }
-    
-    // ベクトル
-    if (token.type === Types.VECTOR) {
-      stack.push({
-        value: token.value,
-        type: Types.VECTOR,
-        color: 'purple'
-      });
-      return;
-    }
-    
-    // シンボル（ワード）
-    if (token.type === Types.SYMBOL) {
-      const word = token.value;
-      
-      // 組み込みワード
-      if (word in builtinWords) {
-        builtinWords[word]();
-        return;
-      }
-      
-      // カスタムワード
-      if (word in environment) {
-        // 遅延評価：定義されたトークン配列を実行
-        const definition = environment[word];
-        for (const defToken of definition) {
-          evaluateToken(defToken);
-        }
-        return;
-      }
-      
-      throw new Error(`Unknown word: "${word}"`);
-    }
-  };
-  
   // スタックの値をフォーマット
   const formatStackValue = (item) => {
     if (item.type === Types.NUMBER) {
@@ -511,14 +434,134 @@ const interpreter = (() => {
     }
   };
   
+  // メモリ表示の更新
+  const updateMemoryDisplay = () => {
+    // スタック表示の更新
+    if (elements.stackContent) {
+      if (stack.length === 0) {
+        elements.stackContent.innerHTML = '<div class="empty-message">empty</div>';
+      } else {
+        elements.stackContent.innerHTML = stack.map((item, index) => {
+          const formattedValue = formatStackValue(item);
+          const colorClass = `color-${item.color || 'gray'}`;
+          return `<div class="memory-item">
+            <span class="index">[${stack.length - 1 - index}]</span>
+            <span class="value" style="color: ${colorCodes[item.color] || '#333'}">${formattedValue}</span>
+            <span class="type">(${item.type})</span>
+          </div>`;
+        }).reverse().join('');
+      }
+    }
+    
+    // レジスタ表示の更新
+    if (elements.registerContent) {
+      if (register === null) {
+        elements.registerContent.innerHTML = '<div class="empty-message">empty</div>';
+      } else {
+        const formattedValue = formatStackValue(register);
+        elements.registerContent.innerHTML = `<div class="memory-item">
+          <span class="value" style="color: ${colorCodes[register.color] || '#333'}">${formattedValue}</span>
+          <span class="type">(${register.type})</span>
+        </div>`;
+      }
+    }
+  };
+  
+  // トークンの評価
+  const evaluateToken = (token) => {
+    // 数値
+    if (token.type === Types.NUMBER) {
+      const fraction = Fraction.fromString(token.value);
+      stack.push({
+        value: fraction,
+        type: Types.NUMBER,
+        color: 'green'
+      });
+      updateMemoryDisplay();
+      return;
+    }
+    
+    // ブール値
+    if (token.type === Types.BOOLEAN) {
+      stack.push({
+        value: token.value === 'TRUE',  // 大文字で比較
+        type: Types.BOOLEAN,
+        color: 'cyan'
+      });
+      updateMemoryDisplay();
+      return;
+    }
+    
+    // 文字列
+    if (token.type === Types.STRING) {
+      stack.push({
+        value: token.value,
+        type: Types.STRING,
+        color: 'blue'
+      });
+      updateMemoryDisplay();
+      return;
+    }
+    
+    // nil
+    if (token.type === Types.NIL) {
+      stack.push({
+        value: null,
+        type: Types.NIL,
+        color: 'orange'
+      });
+      updateMemoryDisplay();
+      return;
+    }
+    
+    // ベクトル
+    if (token.type === Types.VECTOR) {
+      stack.push({
+        value: token.value,
+        type: Types.VECTOR,
+        color: 'purple'
+      });
+      updateMemoryDisplay();
+      return;
+    }
+    
+    // シンボル（ワード）
+    if (token.type === Types.SYMBOL) {
+      const word = token.value;
+      
+      // 組み込みワード
+      if (word in builtinWords) {
+        builtinWords[word]();
+        updateMemoryDisplay();
+        return;
+      }
+      
+      // カスタムワード
+      if (word in environment) {
+        // 遅延評価：定義されたトークン配列を実行
+        const definition = environment[word];
+        for (const defToken of definition) {
+          evaluateToken(defToken);
+        }
+        return;
+      }
+      
+      throw new Error(`Unknown word: "${word}"`);
+    }
+  };
+  
   // 実行メソッド
   const execute = (editor) => {
     try {
       const tokens = tokenize(editor);
-      if (tokens.length === 0) return "Empty input";
+      if (tokens.length === 0) {
+        updateMemoryDisplay();
+        return "Empty input";
+      }
       
       // スタックをクリア
       stack.length = 0;
+      updateMemoryDisplay();
       
       // 各トークンを順次評価
       for (const token of tokens) {
@@ -533,6 +576,7 @@ const interpreter = (() => {
       }
       
     } catch (err) {
+      updateMemoryDisplay();
       return `Error: ${err.message}`;
     }
   };
@@ -542,6 +586,7 @@ const interpreter = (() => {
     stack.length = 0;
     register = null;
     Object.keys(environment).forEach(key => delete environment[key]);
+    updateMemoryDisplay();
   };
   
   return {

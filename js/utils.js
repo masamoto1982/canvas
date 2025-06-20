@@ -183,6 +183,7 @@ const showTextSection = () => {
     elements.textSection.classList.remove('hide');
   }
 };
+
 const showOutputSection = () => {
   if (isMobileDevice() && elements.textSection && elements.outputSection) {
     elements.textSection.classList.add('hide');
