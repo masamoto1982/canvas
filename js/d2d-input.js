@@ -4,13 +4,14 @@ const clearCanvas = () => {
     lineCtx.clearRect(0, 0, elements.lineCanvas.width, elements.lineCanvas.height);
   }
 };
+
 const resetDrawState = (keepActive = false) => {
   drawState.isActive = keepActive;
   if (drawState.detectedDots.size > 0) {
     drawState.detectedDots.forEach(dot => dot.classList.remove('detected'));
     drawState.detectedDots.clear();
   }
-  drawState.totalValue = 1;
+  drawState.currentStrokeValue = 0;
   drawState.currentStrokeDetected = false;
   drawState.hasMoved = false;
   drawState.isDrawingMode = false;
@@ -19,10 +20,14 @@ const resetDrawState = (keepActive = false) => {
   drawState.lastDotX = 0;
   drawState.lastDotY = 0;
   drawState.currentLineColor = null;
-  if (!keepActive) drawState.lastStrokeTime = 0;
+  if (!keepActive) {
+    drawState.lastStrokeTime = 0;
+    drawState.strokeValues = [];
+  }
   clearTimeout(drawState.strokeTimer);
   drawState.strokeTimer = null;
 };
+
 const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => {
   const lineCanvas = elements.lineCanvas;
   if (!lineCanvas) return;
@@ -36,31 +41,36 @@ const drawLineBetweenDots = (fromX, fromY, toX, toY, color) => {
   ctx.lineTo(toX, toY);
   ctx.stroke();
 };
-const recognizeLetterWithErrorCorrection = (totalValue) => {
-  if (letterPatterns[totalValue]) {
-    console.log(`完全一致: ${totalValue} → ${letterPatterns[totalValue]}`);
-    return letterPatterns[totalValue];
-  }
-  if (complexPatterns && complexPatterns[totalValue]) {
-    console.log(`複合パターン一致: ${totalValue} → ${complexPatterns[totalValue]}`);
-    return complexPatterns[totalValue];
-  }
-  const factors = getPrimeFactors(totalValue);
-  const validFactors = factors.filter(f => dotValues.includes(f));
-  if (validFactors.length > 0) {
-    const correctedValue = validFactors.reduce((a, b) => a * b, 1);
-    if (letterPatterns[correctedValue]) {
-      console.log(`誤り訂正成功: ${totalValue} → ${correctedValue} → ${letterPatterns[correctedValue]}`);
-      return letterPatterns[correctedValue];
+
+const recognizeLetterWithStrokes = (strokeValues) => {
+  const strokeCount = strokeValues.length;
+  
+  if (strokeCount === 1) {
+    const value = strokeValues[0];
+    if (letterPatterns[1] && letterPatterns[1][value]) {
+      console.log(`1ストローク認識: ${value} → ${letterPatterns[1][value]}`);
+      return letterPatterns[1][value];
     }
   }
-  const candidatePatterns = findSubsetProductMatches(validFactors, dotValues);
-  if (candidatePatterns.length > 0) {
-    console.log(`部分一致推測: ${totalValue} → ${candidatePatterns[0].letter}`);
-    return candidatePatterns[0].letter;
+  else if (strokeCount === 2) {
+    const key = strokeValues.join(',');
+    if (letterPatterns[2] && letterPatterns[2][key]) {
+      console.log(`2ストローク認識: ${key} → ${letterPatterns[2][key]}`);
+      return letterPatterns[2][key];
+    }
   }
+  else if (strokeCount === 3) {
+    const key = strokeValues.join(',');
+    if (letterPatterns[3] && letterPatterns[3][key]) {
+      console.log(`3ストローク認識: ${key} → ${letterPatterns[3][key]}`);
+      return letterPatterns[3][key];
+    }
+  }
+  
+  console.log(`認識失敗: ストローク数=${strokeCount}, 値=${strokeValues.join(',')}`);
   return null;
 };
+
 const showRecognitionFeedback = (character) => {
   if (!elements.d2dArea || !character) return;
   const fb = document.createElement('div');
@@ -69,14 +79,20 @@ const showRecognitionFeedback = (character) => {
   elements.d2dArea.appendChild(fb);
   setTimeout(() => fb.remove(), 800);
 };
+
 const endDrawing = () => {
   if (!drawState.isActive) return;
   const now = Date.now();
-  if (drawState.currentStrokeDetected) {
+
+  if (drawState.currentStrokeDetected && drawState.currentStrokeValue > 0) {
+    drawState.strokeValues.push(drawState.currentStrokeValue);
+    console.log(`ストローク追加: ${drawState.currentStrokeValue}, 合計: ${drawState.strokeValues.length}`);
+    
     clearTimeout(drawState.strokeTimer);
+
     drawState.strokeTimer = setTimeout(() => {
-      if (drawState.detectedDots.size > 0 && drawState.totalValue > 1) {
-        const rec = recognizeLetterWithErrorCorrection(drawState.totalValue);
+      if (drawState.strokeValues.length > 0) {
+        const rec = recognizeLetterWithStrokes(drawState.strokeValues);
         if (rec) {
           if (isMobileDevice()) {
             showTextSection();
@@ -89,34 +105,41 @@ const endDrawing = () => {
         }
         resetDrawState();
         clearCanvas();
-        drawState.lastStrokeTime = 0;
-      } else {
-        resetDrawState();
-        clearCanvas();
-        drawState.lastStrokeTime = 0;
       }
       drawState.strokeTimer = null;
     }, CONFIG.timing.multiStrokeTimeout);
-  } else if (!drawState.strokeTimer) {
+    
+    drawState.currentStrokeValue = 0;
+    drawState.detectedDots.forEach(dot => dot.classList.remove('detected'));
+    drawState.detectedDots.clear();
+    drawState.detectedDotsList = [];
+    drawState.currentStrokeDetected = false;
+    drawState.lastDetectedDot = null;
+  } else {
     resetDrawState();
     clearCanvas();
-    drawState.lastStrokeTime = 0;
   }
+  
   drawState.lastStrokeTime = now;
 };
+
 const addDetectedDot = (dot) => {
   if (!dot || drawState.detectedDots.has(dot)) return;
+  
   dot.classList.add('detected');
   drawState.detectedDots.add(dot);
   drawState.detectedDotsList.push(dot);
   drawState.currentStrokeDetected = true;
+  
   const v = parseInt(dot.dataset.value, 10);
   if (!isNaN(v)) {
-    drawState.totalValue *= v;
+    drawState.currentStrokeValue |= v;
   }
+  
   const rect = dot.getBoundingClientRect();
   const dotX = rect.left + rect.width / 2;
   const dotY = rect.top + rect.height / 2;
+  
   if (drawState.lastDetectedDot) {
     const activeColorBtn = document.querySelector('.color-btn.active');
     const currentColor = activeColorBtn ? activeColorBtn.dataset.color : 'red';
@@ -129,17 +152,21 @@ const addDetectedDot = (dot) => {
     );
     drawState.currentLineColor = currentColor;
   }
+  
   drawState.lastDetectedDot = dot;
   drawState.lastDotX = dotX;
   drawState.lastDotY = dotY;
+  
   clearTimeout(drawState.strokeTimer);
   drawState.strokeTimer = null;
 };
+
 const detectDot = (x, y) => {
   if (!drawState.isActive || !elements.dotGrid) return;
   const now = Date.now();
   if (now - drawState.lastDetectionTime < CONFIG.sensitivity.debounceTime) return;
   drawState.lastDetectionTime = now;
+
   const hitRadius = CONFIG.sensitivity.hitRadius;
   elements.d2dArea.querySelectorAll('.dot').forEach(dot => {
     if (drawState.detectedDots.has(dot)) return;
@@ -147,6 +174,7 @@ const detectDot = (x, y) => {
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
     const dist = Math.hypot(x - cx, y - cy);
+
     if (dist <= hitRadius) {
       addDetectedDot(dot);
       clearTimeout(drawState.strokeTimer);
@@ -155,6 +183,7 @@ const detectDot = (x, y) => {
     }
   });
 };
+
 const handlePointerDown = (e, el) => {
   if (!e || !el) return;
   if (document.activeElement === elements.input && elements.input.isKeyboardMode) {
@@ -214,6 +243,7 @@ const handlePointerDown = (e, el) => {
     clearCanvas();
   }
 };
+
 const redrawExistingLines = (currentColor) => {
   if (drawState.detectedDotsList.length <= 1) return;
   const dots = drawState.detectedDotsList;
@@ -229,6 +259,7 @@ const redrawExistingLines = (currentColor) => {
     drawLineBetweenDots(prevX, prevY, currX, currY, currentColor);
   }
 };
+
 const handlePointerMove = (e) => {
   if (!drawState.isActive || e.pointerId !== drawState.currentTouchId) return;
   const dx = e.clientX - drawState.pointerStartX;
@@ -272,6 +303,7 @@ const handlePointerMove = (e) => {
     detectDot(e.clientX, e.clientY);
   }
 };
+
 const handlePointerUp = (e) => {
   if (e.pointerId !== drawState.currentTouchId) return;
   try {
@@ -300,6 +332,7 @@ const handlePointerUp = (e) => {
     elements.d2dArea.blur();
   }
 };
+
 const resizeCanvas = () => {
   const d2dArea = elements.d2dArea;
   const canvas = elements.lineCanvas;
@@ -316,6 +349,7 @@ const resizeCanvas = () => {
   canvas.style.top = `${pt}px`;
   clearCanvas();
 };
+
 function initKeypad() {
   if (!elements.dotGrid || !elements.specialRow) {
     console.error("Required grid elements not found! dotGrid:", elements.dotGrid, "specialRow:", elements.specialRow);
@@ -323,8 +357,7 @@ function initKeypad() {
   }
   elements.dotGrid.innerHTML = '';
   elements.specialRow.innerHTML = '';
-  CONFIG.layout.gridRows = 3;
-  CONFIG.layout.gridCols = 3;
+  
   for (let r = 0; r < CONFIG.layout.gridRows; r++) {
     const row = document.createElement('div');
     row.className = 'dot-row';
@@ -336,33 +369,47 @@ function initKeypad() {
       dot.className = 'dot';
       dot.dataset.index = idx;
       dot.dataset.value = value;
-      const position = idx + 1;
-      dot.textContent = position.toString();
-      dot.classList.add('numeric');
-      dot.dataset.digit = position.toString();
+      
+      if (numericPositions[idx]) {
+        dot.classList.add('numeric');
+        dot.textContent = numericPositions[idx];
+        dot.dataset.digit = numericPositions[idx];
+      }
+      else if (symbolPositions[idx]) {
+        dot.classList.add('symbol-dot');
+        dot.textContent = symbolPositions[idx];
+        dot.dataset.word = symbolPositions[idx];
+      }
+      else {
+        dot.classList.add('letter-dot');
+      }
       row.appendChild(dot);
     }
     elements.dotGrid.appendChild(row);
   }
+  
   const deleteBtn = document.createElement('div');
   deleteBtn.className = 'special-button delete';
   deleteBtn.textContent = '削除';
   deleteBtn.dataset.action = 'delete';
   deleteBtn.title = '削除 (ダブルタップで単語削除)';
   elements.specialRow.appendChild(deleteBtn);
+  
   const zeroBtn = document.createElement('div');
   zeroBtn.className = 'dot numeric';
   zeroBtn.textContent = '0';
   zeroBtn.dataset.digit = '0';
   zeroBtn.dataset.index = 'special_0';
-  zeroBtn.dataset.value = '1';
+  zeroBtn.dataset.value = '0';
   elements.specialRow.appendChild(zeroBtn);
+  
   const spaceBtn = document.createElement('div');
   spaceBtn.className = 'special-button space';
   spaceBtn.textContent = '空白/改行';
   spaceBtn.dataset.action = 'space';
   spaceBtn.title = 'シングルクリック: 空白挿入\nダブルクリック: 改行';
   elements.specialRow.appendChild(spaceBtn);
+  
   if (elements.d2dArea) {
     elements.d2dArea.tabIndex = -1;
     elements.d2dArea.setAttribute('inputmode', 'none');
@@ -382,6 +429,7 @@ function initKeypad() {
   setupDotEventListeners();
   setupSpecialButtonListeners();
 }
+
 const setupDotEventListeners = () => {
   if (!elements.d2dArea) return;
   elements.d2dArea.addEventListener('focus', (e) => {
