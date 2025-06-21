@@ -31,6 +31,7 @@ h1 {
 h2 {
     text-align: center;
     color: #a0a0a0;
+    margin-bottom: 5px;
 }
 
 h3 {
@@ -38,7 +39,6 @@ h3 {
     color: #b0b0b0;
     font-size: 14px;
     margin-bottom: 5px;
-    padding-left: 8px;  /* 左側に少しパディングを追加 */
 }
 
 section {
