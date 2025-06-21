@@ -358,6 +358,27 @@ section:last-child {
     #memory-section {
         height: 30vh;
         min-height: 200px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;  /* 追加 */
+    }
+
+    #memory-area {
+        flex: 1;
+        min-height: 0;  /* 追加：flexアイテムの縮小を許可 */
+        overflow: hidden;  /* 追加 */
+    }
+
+    .memory-subsection {
+        min-height: 0;  /* 追加：flexアイテムの縮小を許可 */
+        overflow: hidden;  /* 追加 */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .memory-content {
+        min-height: 0;  /* 追加：flexアイテムの縮小を許可 */
+        overflow-y: auto;  /* スクロールは維持 */
     }
 
     body {
