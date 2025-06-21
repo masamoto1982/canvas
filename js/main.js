@@ -54,7 +54,7 @@ const initResponsiveLayout = () => {
 
 window.addEventListener('DOMContentLoaded', () => {
   // 要素の取得
-  elements.input = document.getElementById('txt-input');
+  elements.input = document.getElementById('input');
   elements.output = document.getElementById('output');
   elements.executeButton = document.getElementById('execute-button');
   elements.clearButton = document.getElementById('clear-button');

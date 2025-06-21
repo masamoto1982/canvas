@@ -434,38 +434,30 @@ const interpreter = (() => {
     }
   };
   
-  // メモリ表示の更新
-  const updateMemoryDisplay = () => {
-    // スタック表示の更新
-    if (elements.stackContent) {
-      if (stack.length === 0) {
-        elements.stackContent.innerHTML = '<div class="empty-message">empty</div>';
-      } else {
-        elements.stackContent.innerHTML = stack.map((item, index) => {
-          const formattedValue = formatStackValue(item);
-          const colorClass = `color-${item.color || 'gray'}`;
-          return `<div class="memory-item">
-            <span class="index">[${stack.length - 1 - index}]</span>
-            <span class="value" style="color: ${colorCodes[item.color] || '#333'}">${formattedValue}</span>
-            <span class="type">(${item.type})</span>
-          </div>`;
-        }).reverse().join('');
-      }
+// メモリ表示の更新
+const updateMemoryDisplay = () => {
+  // スタック表示の更新
+  if (elements.stackContent) {
+    if (stack.length === 0) {
+      elements.stackContent.innerHTML = '<div class="empty-message">empty</div>';
+    } else {
+      elements.stackContent.innerHTML = stack.map((item) => {
+        const formattedValue = formatStackValue(item);
+        return `<div class="memory-item" style="color: ${colorCodes[item.color] || '#333'}">${formattedValue}</div>`;
+      }).reverse().join('');
     }
-    
-    // レジスタ表示の更新
-    if (elements.registerContent) {
-      if (register === null) {
-        elements.registerContent.innerHTML = '<div class="empty-message">empty</div>';
-      } else {
-        const formattedValue = formatStackValue(register);
-        elements.registerContent.innerHTML = `<div class="memory-item">
-          <span class="value" style="color: ${colorCodes[register.color] || '#333'}">${formattedValue}</span>
-          <span class="type">(${register.type})</span>
-        </div>`;
-      }
+  }
+  
+  // レジスタ表示の更新
+  if (elements.registerContent) {
+    if (register === null) {
+      elements.registerContent.innerHTML = '<div class="empty-message">empty</div>';
+    } else {
+      const formattedValue = formatStackValue(register);
+      elements.registerContent.innerHTML = `<div class="memory-item" style="color: ${colorCodes[register.color] || '#333'}">${formattedValue}</div>`;
     }
-  };
+  }
+};
   
   // トークンの評価
   const evaluateToken = (token) => {
